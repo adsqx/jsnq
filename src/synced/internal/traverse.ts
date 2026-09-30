@@ -1,8 +1,6 @@
 /**
- * Iterative DFS over JSON values. Two consumers share one traversal state:
- * - `scanJsonMatches`: callback-driven match collection with allocation-light stacks;
- * - `dfsIterator`: generator that yields a frame for every visited value.
- * Both visit nodes in the same pre-order (arrays by index, objects by key order).
+ * Iterative DFS over JSON values, pre-order (arrays by index, objects by key order), in two flavors:
+ * `scanJsonMatches` (callback-driven match collection, allocation-light) and `dfsIterator` (generator yielding every visited value).
  */
 import { isObject } from './guards';
 
@@ -23,10 +21,9 @@ export interface ScanJsonOptions {
 }
 
 /**
- * Parallel-array DFS stack. Parent/key stacks are only filled when `buildMeta` is set and
- * the segment stack only when `returnPaths` is set (an empty stack pops `undefined`), so
- * callers pay solely for the data they asked for. After `next()` returns true the current
- * node's state is readable from the public fields.
+ * Parallel-array DFS stack. Parent/key stacks are only filled when `buildMeta` is set and the segment
+ * stack only when `returnPaths` is set (an empty stack pops `undefined`), so callers pay solely for
+ * what they asked for. After `next()` returns true the current node is readable from the public fields.
  */
 class Walk {
   node: unknown = undefined;
@@ -112,11 +109,7 @@ class Walk {
   }
 }
 
-/**
- * Allocation-light DFS for match collection. Stack state is stored in parallel
- * arrays and result nodes are created only for matches, unlike the generator
- * contract which must allocate a frame for every visited value.
- */
+/** Allocation-light DFS for match collection: parallel-array stacks, result nodes only for matches. */
 export function scanJsonMatches(
   data: unknown,
   options: ScanJsonOptions,

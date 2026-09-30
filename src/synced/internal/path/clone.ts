@@ -1,12 +1,10 @@
-import type { JsonContainer } from './types';
+import type { JsonContainer } from '../guards';
 
 /**
- * Per-call clone state. The cycle / shared-reference registry is allocated lazily, on the
- * first container that has a container child: values without nested containers (the common
- * flat-row case) never pay for a WeakMap. Every container cloned after that point is
- * registered before its children are visited, so cycles and shared refs resolve exactly as
- * if the registry had existed from the start (only the root can predate it, and it is
- * registered when the registry is created).
+ * Per-call clone state. The cycle / shared-reference registry is allocated lazily, on the first
+ * container with a container child: flat rows never pay for a WeakMap. Containers cloned after
+ * that are registered before their children are visited (the root is registered when the
+ * registry is created), so cycles and shared refs resolve as if it had existed from the start.
  */
 interface CloneState {
   seen: WeakMap<object, unknown> | null;
@@ -30,8 +28,7 @@ function cloneChild(value: object, parent: object, parentClone: unknown, state: 
 
 function cloneArray(source: unknown[], state: CloneState): unknown[] {
   const length = source.length;
-  // Presized (holey-kind) like the original: measured faster than push-built packed arrays,
-  // and holes stay holes because absent indices are simply never assigned.
+  // Presized (holey-kind): measured faster than push-built packed arrays; holes stay holes (never assigned).
   const clone: unknown[] = new Array(length);
   state.seen?.set(source, clone);
   for (let i = 0; i < length; i++) {
@@ -54,8 +51,9 @@ function cloneContainer(value: object, state: CloneState): unknown {
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) {
     // Non-plain host objects (Date, Map, class instances, ...) keep the structuredClone behavior.
-    const clone = typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
-    if (typeof structuredClone === 'function') state.seen?.set(value, clone);
+    if (typeof structuredClone !== 'function') return JSON.parse(JSON.stringify(value));
+    const clone = structuredClone(value);
+    state.seen?.set(value, clone);
     return clone;
   }
 
@@ -76,10 +74,9 @@ function cloneContainer(value: object, state: CloneState): unknown {
 }
 
 /**
- * Clone the JSON-like state shape without paying structuredClone's serializer
- * overhead for ordinary arrays and records. Non-plain host objects retain the
- * previous structuredClone behavior; the registry also preserves shared refs
- * and cycles for plain data supplied through untyped JavaScript callers.
+ * Clone the JSON-like state shape without structuredClone's serializer overhead for ordinary
+ * arrays and records. Non-plain host objects keep the structuredClone behavior; shared refs and
+ * cycles of plain data are preserved.
  */
 export function cloneJsonData<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value;

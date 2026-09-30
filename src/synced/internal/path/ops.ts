@@ -1,23 +1,18 @@
-import { isForbiddenSegment, isNumericSegment, isObjectLike } from '../guards';
-import { createExactSetResult, createMutationResult, getJsonAffectedPaths } from './mutation-result';
-import { toPlan } from './plan-cache';
-import type { JsonContainer, JsonMutationResult, JsonPathPlan, JsonResolvedParent } from './types';
-
-const hasOwn = (target: object, key: string): boolean => Object.prototype.hasOwnProperty.call(target, key);
+/** Read/write/delete on JSON values addressed by path plans, plus the write cursor. */
+import { hasOwn, isForbiddenSegment, isNumericSegment, isObjectLike, type JsonContainer } from '../guards';
+import { toPlan, createJsonPathPlan, type JsonPathPlan, type JsonResolvedParent } from './plan';
+import { createExactSetResult, createMutationResult, getJsonAffectedPaths, type JsonMutationResult } from './result';
 
 export function getJsonBySegments<T = unknown>(obj: unknown, segments: readonly string[]): T | undefined {
-  // Indexed loop (not for...of) — avoids per-call iterator allocation on this hot path
-  // (~10-15% on the dominant object/nested segment walk). Array string-index stays as-is:
-  // a numeric-conversion variant was measured slower for objects (megamorphic key access).
+  // Indexed loop (not for...of): avoids per-call iterator allocation on this hot path (~10-15%).
+  // Array string-index stays as-is: a numeric-conversion variant measured slower for objects.
   let current: unknown = obj;
   const len = segments.length;
   for (let i = 0; i < len; i++) {
     if (current == null) return undefined;
     const segment = segments[i]!;
-    // Prototype guard. Path-based entry points reject these while compiling the plan, but
-    // this one takes raw segments, so without the check `['__proto__']` handed back
-    // Object.prototype to the caller. The length test is a cheap pre-filter: the three
-    // forbidden names are 9 or 11 characters, so ordinary keys never reach the Set lookup.
+    // Prototype guard: path-based entry points reject forbidden names while compiling the plan,
+    // but this one takes raw segments, so `['__proto__']` would hand back Object.prototype.
     if (isForbiddenSegment(segment)) return undefined;
     current = (current as JsonContainer)[segment];
   }
@@ -48,13 +43,13 @@ export function hasJsonPath(root: unknown, pathOrPlan: string | JsonPathPlan): b
 }
 
 /** The child of `parent` at `segment` when it is a container of the shape the next hop needs. */
-export function getChild(parent: JsonContainer, segment: string, nextIsIndex: boolean): JsonContainer | undefined {
+function getChild(parent: JsonContainer, segment: string, nextIsIndex: boolean): JsonContainer | undefined {
   const existing = parent[segment];
   return isObjectLike(existing) && (!nextIsIndex || Array.isArray(existing)) ? existing : undefined;
 }
 
 /** {@link getChild}, creating (or replacing a wrongly shaped) child as `[]` / `{}` when missing. */
-export function ensureChild(parent: JsonContainer, segment: string, nextIsIndex: boolean): JsonContainer {
+function ensureChild(parent: JsonContainer, segment: string, nextIsIndex: boolean): JsonContainer {
   const existing = getChild(parent, segment, nextIsIndex);
   if (existing !== undefined) return existing;
   parent[segment] = nextIsIndex ? [] : {};
@@ -62,7 +57,7 @@ export function ensureChild(parent: JsonContainer, segment: string, nextIsIndex:
 }
 
 /** Array-aware assignment: numeric keys on arrays use the numeric index. */
-export function assignJsonValue(parent: JsonContainer, key: string, value: unknown): void {
+function assignJsonValue(parent: JsonContainer, key: string, value: unknown): void {
   if (Array.isArray(parent) && isNumericSegment(key)) parent[Number(key)] = value;
   else parent[key] = value;
 }
@@ -78,18 +73,14 @@ function walkParents(root: unknown, plan: JsonPathPlan, create: boolean): unknow
   return parent;
 }
 
-export function resolveJsonParentAndKey(
-  root: unknown,
-  pathOrPlan: string | JsonPathPlan,
-  options: { create?: boolean } = {}
-): JsonResolvedParent {
+export function resolveJsonParentAndKey(root: unknown, pathOrPlan: string | JsonPathPlan, options: { create?: boolean } = {}): JsonResolvedParent {
   const plan = toPlan(pathOrPlan);
   if (plan.segments.length === 0) return { parent: root, key: null, segments: plan.segments };
   return { parent: walkParents(root, plan, !!options.create), key: plan.key, segments: plan.segments };
 }
 
 /** Assigns `value` at `key` of `parent` and reports it as an exact-path set. */
-export function setAt(parent: JsonContainer, plan: JsonPathPlan, key: string, value: unknown): JsonMutationResult {
+function setAt(parent: JsonContainer, plan: JsonPathPlan, key: string, value: unknown): JsonMutationResult {
   const existed = hasOwn(parent, key);
   const previous = parent[key];
   assignJsonValue(parent, key, value);
@@ -106,9 +97,8 @@ export function writeJsonPath(root: unknown, pathOrPlan: string | JsonPathPlan, 
 }
 
 /**
- * Write-only variant for hosts that perform their own wake bookkeeping. It uses
- * the same cached path plan and parent walk as `writeJsonPath`, but avoids
- * allocating a mutation-result object and path arrays that the caller would discard.
+ * Write-only variant for hosts that do their own wake bookkeeping: same cached plan and parent
+ * walk as `writeJsonPath`, without allocating a result object the caller would discard.
  * Returns false for a root path or an unresolvable target.
  */
 export function writeJsonPathValue(root: unknown, pathOrPlan: string | JsonPathPlan, value: unknown): boolean {
@@ -147,4 +137,66 @@ export function deleteJsonPath(root: unknown, pathOrPlan: string | JsonPathPlan)
     branchReplaced: existed && isObjectLike(previous),
     affectedPaths: getJsonAffectedPaths(plan, 'branch'),
   });
+}
+
+/** Remembers the container reached by the last write so consecutive writes under the same parent skip the walk from the root. */
+export class JsonDataCursor {
+  private cursorNode: JsonContainer | null = null;
+  private cursorPathSegments: string[] | null = null;
+
+  prefetch(path: string, node: Record<string, unknown> | null): void {
+    const plan = createJsonPathPlan(path);
+    this.cursorNode = node ?? null;
+    this.cursorPathSegments = plan.segments.length > 0 ? [...plan.segments] : null;
+  }
+
+  writeWithPlan(root: Record<string, unknown>, plan: JsonPathPlan, value: unknown): JsonMutationResult {
+    const key = plan.key;
+    if (key == null) return createExactSetResult(plan, root, value, true, isObjectLike(root) || isObjectLike(value));
+
+    const { parentSegments, nextIsIndex } = plan;
+    let current: JsonContainer = root;
+    let startIndex = 0;
+    const cached = this.cursorPathSegments;
+    if (this.cursorNode && cached && cached.length <= parentSegments.length) {
+      let isPrefix = true;
+      // Repeat write under the same parent: the cursor holds the plan's own array.
+      if (cached !== parentSegments) {
+        for (let i = 0; isPrefix && i < cached.length; i++) isPrefix = cached[i] === parentSegments[i];
+      }
+      if (isPrefix) {
+        current = this.cursorNode;
+        startIndex = cached.length;
+      }
+    }
+
+    try {
+      for (let i = startIndex; i < parentSegments.length; i++) current = ensureChild(current, parentSegments[i]!, !!nextIsIndex[i]);
+      const result = setAt(current, plan, key, value);
+      this.cursorNode = current;
+      this.cursorPathSegments = parentSegments;
+      return result;
+    } catch {
+      const result = writeJsonPath(root, plan, value);
+      const parent = getJsonBySegments(root, parentSegments);
+      this.cursorNode = isObjectLike(parent) ? parent : null;
+      this.cursorPathSegments = parentSegments.slice();
+      return result;
+    }
+  }
+
+  invalidateForDeletion(path: string): void {
+    if (!this.cursorPathSegments) return;
+    const currentPath = this.cursorPathSegments.join('.');
+    if (currentPath === path || currentPath.startsWith(`${path}.`) || path.startsWith(`${currentPath}.`)) this.clear();
+  }
+
+  clear(): void {
+    this.cursorNode = null;
+    this.cursorPathSegments = null;
+  }
+
+  get active(): boolean {
+    return this.cursorNode !== null;
+  }
 }

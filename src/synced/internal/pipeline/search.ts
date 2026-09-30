@@ -4,17 +4,27 @@
  * - `scanMatches`: DFS with per-match actions (the general case);
  * - `sequentialMatches`: deep `@` array criteria, which fan a node out into nested elements.
  */
-import type { CompiledCriterion } from '../types/operators';
-import type { SearchOptions } from '../types/options';
-import type { SearchResultNode } from '../types/pipeline';
-import type { PipelineStats } from '../types/stats';
+import type { ActionMap, ActionType } from '../types/actions';
+import type { CompiledCriterion, SearchOptions, PipelineStats, SearchResultNode } from '../types/model';
 import type { PreparedAction } from '../../core/actions';
-import type { RunCtx } from './context';
-import type { CriteriaPlan } from './criteria';
-import { resolveTraversal, type Traversal } from '../run-options';
-import { applyNodeActions } from './apply';
+import { applyValueAction } from '../../core/actions';
 import { criterionMatches } from '../../core/match';
-import { deepArrayIterator, dfsIterator, getBySegments, isObject, scanJsonMatches } from '../../core/utils';
+import { specOf, type NodeSpec } from '../action-registry';
+import { isObject } from '../guards';
+import { ACTION_STAT, resolveTraversal, type RunCtx, type Traversal } from '../run-options';
+import { getBySegments } from '../tree-utils';
+import { deepArrayIterator } from '../deep-search';
+import { dfsIterator, scanJsonMatches } from '../traverse';
+import type { CompiledPredicate } from '../../core/compiled-predicate';
+
+export interface CriteriaPlan {
+  /** Some criterion is a deep `@` path. */
+  hasDeep: boolean;
+  /** Some deep criterion descends into array elements (needs the sequential matcher). */
+  hasDeepArray: boolean;
+  /** Node matcher: always-true for no criteria, else the codegen predicate, else the interpreter. */
+  match: CompiledPredicate;
+}
 
 export interface SearchRun {
   ctx: RunCtx;
@@ -30,15 +40,38 @@ export interface SearchRun {
   defer: boolean;
 }
 
+// One generic call site per phase: the handlers' bivariant parameters let a union of action types
+// through without casts (see the note on ValueSpec in the registry).
+function runNode<K extends ActionType>(spec: NodeSpec<K>, ctx: RunCtx, node: SearchResultNode, action: ActionMap[K]): boolean {
+  return spec.apply(ctx, node, action);
+}
+
+/** The prepared actions applied per matched node (value + node phase); null when there are none. */
+export function nodeSteps(prepared: PreparedAction[] | null): PreparedAction[] | null {
+  const steps = prepared?.filter((p) => p.plan !== null || specOf(p.action)?.phase === 'node');
+  return steps && steps.length > 0 ? steps : null;
+}
+
+/** Apply every step to one matched node, in declaration order (value actions log/count themselves; node actions are counted here). */
+export function applyNodeActions(ctx: RunCtx, node: SearchResultNode, prepared: PreparedAction[]): void {
+  for (const p of prepared) {
+    if (p.plan !== null) {
+      applyValueAction(node.data, p, ctx.options, ctx.stats);
+      continue;
+    }
+    const spec = specOf(p.action);
+    if (spec?.phase === 'node' && runNode(spec, ctx, node, p.action)) ctx.stats[ACTION_STAT[p.action.type]]++;
+  }
+}
+
 /** Match collection without actions or result paths. */
 export function searchOnly(data: unknown, { match }: CriteriaPlan, options: Readonly<SearchOptions>, stats: PipelineStats, limit: number | undefined): SearchResultNode[] {
   const out: SearchResultNode[] = [];
   const traversal = resolveTraversal(options);
   const { maxDepth, includeArrays } = traversal;
 
-  // Top-level fast path: with maxDepth 1 an array root cannot be descended into, so the full DFS
-  // would only ever check the root + its direct items. Iterate them directly (no stack frames or
-  // child pushes), which is near-native for flat filtering. Stats are updated live like the DFS.
+  // Top-level fast path: with maxDepth 1 the DFS only checks the root + its direct items, so iterate
+  // them directly (no stack frames or child pushes): near-native flat filtering. Stats update live like the DFS.
   if (maxDepth === 1 && Array.isArray(data) && includeArrays) {
     stats.maxDepth = Math.max(stats.maxDepth, 1);
     stats.nodesVisited++; // root array node, checked first (depth 0)
@@ -74,8 +107,8 @@ export function scanMatches(data: unknown, run: SearchRun): SearchResultNode[] {
   const { ctx, plan, traversal, needMeta, needPaths, limit, steps, defer } = run;
   const out: SearchResultNode[] = [];
   const { match } = plan;
-  // The arrow (one shared function, unlike the per-query predicates) keeps scanJsonMatches' predicate
-  // call site monomorphic across queries; passing `match` directly measured slower on the bench.
+  // The arrow (one shared function, unlike per-query predicates) keeps scanJsonMatches' predicate call
+  // site monomorphic across queries; passing `match` directly measured slower.
   const scan = scanJsonMatches(data, { ...traversal, buildMeta: needMeta, returnPaths: needPaths }, (node) => match(node), (node) => {
     ctx.stats.resultsFound++;
     if (steps && !defer) applyNodeActions(ctx, node, steps);

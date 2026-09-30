@@ -1,27 +1,18 @@
-import type {
-  Action,
-  CompiledCriterion,
-  InsertAction,
-  PipelineStats,
-  SearchOptions,
-  SearchResultNode,
-} from './types';
+import type { Action, CompiledCriterion, InsertAction, PipelineStats, SearchOptions, SearchResultNode } from './types';
 import { cloneJson } from './utils';
 import { applyValueAction, isValueAction, prepareActions } from './actions';
 import { compileFlatMutation } from './compiled-mutation';
 import { insertRelative } from './ops';
 import { resolveRun } from '../internal/run-options';
-import { hasNestedCriterionCandidate, isFlatScanEligible } from '../internal/fastpath/guard';
-import { flatMatcher } from '../internal/fastpath/matcher';
+import { flatMatcher, hasNestedCriterionCandidate, isFlatScanEligible } from '../internal/fastpath/shared';
 
 export { hasNestedCriterionCandidate };
 
 /**
- * Fast path for the most common large-data shape: a flat root array filtered by
- * non-deep criteria and mutated only with value actions (replace / update /
- * merge_update / delete_key). Skips the generic DFS: a single linear scan with
- * actions prepared once. Falls back (returns null) whenever nested descendants
- * could match the criteria, so results stay identical to the full traversal.
+ * Fast path for the most common large-data shape: a flat root array filtered by non-deep criteria
+ * and mutated only with value actions, delete_element or one relative insert. A single linear scan
+ * with actions prepared once instead of the generic DFS; returns null whenever nested descendants
+ * could match, so results stay identical to the full traversal.
  */
 
 type FastPathParams<TData> = {
@@ -34,15 +25,9 @@ type FastPathParams<TData> = {
   immutableApplied: boolean;
 };
 
-export type FlatArrayFastPathResult<TData> = {
-  data: TData;
-  results: SearchResultNode<TData, unknown, string | number>[];
-  immutableApplied: boolean;
-};
+export type FlatArrayFastPathResult<TData> = { data: TData; results: SearchResultNode<TData, unknown, string | number>[]; immutableApplied: boolean };
 
-export function executeFlatArrayFastPath<TData>(
-  params: FastPathParams<TData>
-): FlatArrayFastPathResult<TData> | null {
+export function executeFlatArrayFastPath<TData>(params: FastPathParams<TData>): FlatArrayFastPathResult<TData> | null {
   const { criteria, actions, options, stats } = params;
   const isDeleteElementOnly = actions.length === 1 && actions[0]!.type === 'delete_element';
   const relativeInsert = getRelativeInsert(actions);
@@ -55,8 +40,8 @@ export function executeFlatArrayFastPath<TData>(
   const items = workingData as unknown[];
   const immutableApplied = params.immutableApplied || shouldClone;
 
-  // Whole-loop codegen: match + mutate in one inlined function. Skipped when there is a
-  // limit/earlyTermination (compiled loop does not truncate) or for delete_element / relative insert.
+  // Whole-loop codegen (match + mutate in one inlined function); skipped with a limit/earlyTermination
+  // (the compiled loop cannot truncate) and for delete_element / relative insert.
   const compiledMutation = !hasLimit && valueOnly ? compileFlatMutation<unknown>(criteria, actions) : null;
   if (compiledMutation) {
     stats.nodesVisited += items.length + 1;
@@ -72,8 +57,7 @@ export function executeFlatArrayFastPath<TData>(
     return { data: workingData, results, immutableApplied };
   }
 
-  // Interpreter scan. `preparedActions` is empty for delete_element / relative insert, whose
-  // effect is applied once after the scan from the collected match nodes.
+  // Interpreter scan. delete_element / relative insert have no prepared actions: they are applied once after the scan.
   const preparedActions = valueOnly ? prepareActions(actions) : [];
   const matches = flatMatcher(criteria, options, { warnedUnknownOps: params.warnedUnknownOps, warnings: stats.warnings });
   const results: SearchResultNode<TData, unknown, string | number>[] = [];
@@ -101,16 +85,12 @@ export function executeFlatArrayFastPath<TData>(
   return { data: workingData, results, immutableApplied };
 }
 
-function deleteMatched(
-  items: unknown[],
-  results: ReadonlyArray<SearchResultNode<unknown, unknown, string | number>>,
-  options: Readonly<SearchOptions>,
-  stats: PipelineStats
-): void {
+type Matches = ReadonlyArray<SearchResultNode<unknown, unknown, string | number>>;
+
+function deleteMatched(items: unknown[], results: Matches, options: Readonly<SearchOptions>, stats: PipelineStats): void {
   stats.deletedElements += results.length;
   if (!options.dryRun) {
-    // Matches arrive in ascending index order. Compact once instead of doing
-    // N descending splices (which turns deleting half a large array into O(n²)).
+    // Matches arrive in ascending index order: compact once instead of N descending splices (O(n²) for half a large array).
     let writeIndex = 0;
     let cursor = 0;
     for (let readIndex = 0; readIndex < items.length; readIndex++) {
@@ -127,12 +107,7 @@ function deleteMatched(
   }
 }
 
-function insertAroundMatched(
-  { data, position, key }: InsertAction,
-  results: ReadonlyArray<SearchResultNode<unknown, unknown, string | number>>,
-  options: Readonly<SearchOptions>,
-  stats: PipelineStats
-): void {
+function insertAroundMatched({ data, position, key }: InsertAction, results: Matches, options: Readonly<SearchOptions>, stats: PipelineStats): void {
   for (const node of results) {
     if (!options.dryRun && !insertRelative(node, data, position, key, options, stats)) continue;
     stats.inserted++;

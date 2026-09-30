@@ -1,12 +1,10 @@
 /**
- * `@` deep-array search: `fields@id` finds elements of `fields` (and of nested `fields`
- * arrays inside matching or non-matching elements) whose `id` satisfies an operator;
- * `@id` tests the current node itself.
+ * `@` deep-array search: `fields@id` finds elements of `fields` (and of nested `fields` arrays inside
+ * matching or non-matching elements) whose `id` satisfies an operator; `@id` tests the current node itself.
  */
 import { isObject } from './guards';
-import { getBySegments, splitPath } from './path-facade';
+import { getBySegments, splitPath } from './tree-utils';
 
-// Deep search path parsing - recognises `@` as the deep array search operator
 export interface DeepSearchPath {
   isDeep: boolean;
   arrayKey?: string;      // Array key for deep search (e.g. "fields", "layout")
@@ -27,6 +25,7 @@ export function parseDeepSearchPath(path: string): DeepSearchPath {
 }
 
 type OpFn = (a: unknown, b: unknown) => boolean;
+type DeepMatch = { data: unknown; path?: string[]; depth: number; parent?: unknown; parentKey?: string | number };
 
 interface ArrayFrame {
   arr: unknown[];
@@ -36,20 +35,11 @@ interface ArrayFrame {
   nextIndex: number;
 }
 
-export interface DeepArrayMatch {
-  data: unknown;
-  path?: string[];
-  depth: number;
-  parent?: unknown;
-  parentKey?: string | number;
-}
-
 /**
- * Resumable walk over `arrayKey` arrays: every element is tested against `opFn`, and object
- * elements holding a nested `arrayKey` array are descended into (arrays already on the
- * current stack are skipped to stay cycle-safe). A matched element's own nested array is
- * visited after the match is consumed. Paths are only built on demand, so a boolean
- * caller pays for none.
+ * Resumable walk over `arrayKey` arrays: every element is tested against `opFn`, and object elements
+ * holding a nested `arrayKey` array are descended into (arrays already on the stack are skipped: cycle-safe).
+ * A matched element's own nested array is visited after the match is consumed. Paths are built on
+ * demand, so a boolean caller pays for none.
  */
 class ArrayCursor {
   private readonly keySegments: string[];
@@ -103,7 +93,7 @@ class ArrayCursor {
   }
 
   /** The element reported by the last successful `next()`. */
-  match(): DeepArrayMatch {
+  match(): DeepMatch {
     const frame = this.frame!;
     return { data: this.item, path: this.pathOf(frame, this.index), depth: frame.depth, parent: frame.arr, parentKey: this.index };
   }
@@ -120,7 +110,7 @@ class ArrayCursor {
   }
 }
 
-// Deep array matching - true as soon as one element (or nested element) matches
+/** True as soon as one element (or nested element) matches. */
 export function deepArrayMatch(
   node: unknown,
   arrayKey: string | undefined,
@@ -134,7 +124,7 @@ export function deepArrayMatch(
   return new ArrayCursor(node, arrayKey, searchSegments, opFn, value, [], 0, maxDepth).next();
 }
 
-// Deep array iterator - yield all matching elements from nested arrays
+/** Yields every matching element of the (nested) arrays. */
 export function* deepArrayIterator(
   node: unknown,
   arrayKey: string | undefined,
@@ -146,7 +136,7 @@ export function* deepArrayIterator(
   maxDepth: number = Number.POSITIVE_INFINITY
 ): Generator<{ data: unknown; path?: string[]; depth: number; parent?: unknown; parentKey?: string | number }> {
   if (!arrayKey) {
-    // @id - yield node itself if matches
+    // `@id`: the node itself is the only candidate
     if (opFn(getBySegments(node, searchSegments), value)) yield { data: node, path, depth };
     return;
   }

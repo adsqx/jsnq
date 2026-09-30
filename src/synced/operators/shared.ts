@@ -9,10 +9,7 @@ export type ModeKeyOptions<TKey extends string | number = string | number> = {
 export const normalizeModeKeyOptions = <TKey extends string | number>(
   modeOrOpts: InsertPosition | ModeKeyOptions<TKey> | undefined,
   fallbackKey?: TKey
-): ModeKeyOptions<TKey> => {
-  if (isObject(modeOrOpts)) return modeOrOpts;
-  return { mode: modeOrOpts, key: fallbackKey };
-};
+): ModeKeyOptions<TKey> => (isObject(modeOrOpts) ? modeOrOpts : { mode: modeOrOpts, key: fallbackKey });
 
 export const appendAction = <T extends PipelineLike, TAction extends Action>(
   pipeline: T,
@@ -26,11 +23,7 @@ export const mutationAction = <T extends PipelineLike>(action: Action): JsonOper
   return operator;
 };
 
-/**
- * Factory for the move/copy "matches" operator family: all six operators share
- * the (targetKey, targetOperator, targetValue, mode?, key?) signature and only
- * differ in the produced action type and the default mode.
- */
+/** Factory for the move/copy "matches" family: one (targetKey, targetOperator, targetValue, mode?, key?) signature, varying action type / default mode. */
 export const targetMatchesOperator = (type: ActionType, defaultMode?: InsertPosition) =>
   <T extends PipelineLike>(
     targetKey: string,
@@ -41,10 +34,7 @@ export const targetMatchesOperator = (type: ActionType, defaultMode?: InsertPosi
   ): JsonOperator<T> =>
     mutationAction({ type, targetKey, targetOperator, targetValue, mode, key } as Action);
 
-/**
- * Factory for moveTo/copyTo: (position, modeOrOpts?, key?) with options-object
- * support; differs only in action type.
- */
+/** Factory for moveTo/copyTo: (position, modeOrOpts?, key?) with options-object support. */
 export const positionOperator = (type: 'move' | 'copy') =>
   <T extends PipelineLike>(
     position: string,

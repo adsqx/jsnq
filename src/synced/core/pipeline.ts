@@ -1,21 +1,12 @@
 import type {
-  Action,
-  CompiledCriterion,
-  JsonOperator,
-  PipelineLike,
-  PipelineStats,
-  SearchOptions,
-  SearchResultNode,
-  JsonLike,
+  Action, CompiledCriterion, JsonOperator, PipelineLike, PipelineStats, SearchOptions, SearchResultNode, JsonLike,
 } from './types';
 import { cloneJson } from './utils';
 import type { StrictOperatorContext } from './match';
 import { prepareActions, PreparedAction } from './actions';
 import { executeFlatArrayFastPath } from './flat-array-fast-path';
 import { createStats, DEFAULT_MAX_DEPTH, resetStats, resolveRun } from '../internal/run-options';
-import { planCriteria } from '../internal/pipeline/criteria';
-import { rootArrayInsert } from '../internal/pipeline/root-insert';
-import { runSearch } from '../internal/pipeline/run';
+import { planCriteria, rootArrayInsert, runSearch } from '../internal/pipeline/run';
 
 const now = (): number => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
@@ -38,30 +29,20 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
   constructor(data: TData, options: SearchOptions = {}, criteria: CompiledCriterion[] = [], actions: Action[] = []) {
     this._data = data;
     this.options = {
-      maxDepth: DEFAULT_MAX_DEPTH,
-      includeArrays: true,
-      includeObjects: true,
-      earlyTermination: false,
-      limit: undefined,
-      buildMeta: true,
-      returnPaths: true,
-      ...options
+      maxDepth: DEFAULT_MAX_DEPTH, includeArrays: true, includeObjects: true, earlyTermination: false,
+      limit: undefined, buildMeta: true, returnPaths: true, ...options,
     };
     this.criteria = criteria;
     this.actions = actions;
   }
 
-  private spawn(next: { data?: TData; options?: SearchOptions; criteria?: CompiledCriterion[]; actions?: Action[] }): JsnqPipeline<TData> {
+  with(next: { data?: TData; options?: SearchOptions; criteria?: CompiledCriterion[]; actions?: Action[] }): JsnqPipeline<TData> {
     return new JsnqPipeline<TData>(
       next.data ?? this.data,
       next.options ?? this.options,
       next.criteria ?? (this.criteria as CompiledCriterion[]),
       next.actions ?? (this.actions as Action[])
     );
-  }
-
-  with(next: { data?: TData; options?: SearchOptions; criteria?: CompiledCriterion[]; actions?: Action[] }): JsnqPipeline<TData> {
-    return this.spawn(next);
   }
 
   immutable(mode: true | 'auto' = true): JsnqPipeline<TData> {
@@ -78,12 +59,12 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
     return ops.reduce<JsnqPipeline<TData>>((acc, op) => op(acc), this);
   }
 
-  clone(): JsnqPipeline<TData> { return this.spawn({}); }
+  clone(): JsnqPipeline<TData> { return this.with({}); }
 
   first(): TData | null;
   first<T = unknown>(): T | null;
   first<T = unknown>(): T | null {
-    const limited = this.spawn({ options: { ...this.options, earlyTermination: true } });
+    const limited = this.with({ options: { ...this.options, earlyTermination: true } });
     const res = limited.execute();
     return res.length ? (res[0].data as unknown as T) : null;
   }
@@ -93,11 +74,7 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
   count(): number { return this.execute().length; }
 
   getStats(): PipelineStats {
-    return {
-      ...this.stats,
-      warnings: [...this.stats.warnings],
-      operations: [...this.stats.operations],
-    };
+    return { ...this.stats, warnings: [...this.stats.warnings], operations: [...this.stats.operations] };
   }
 
   private execute(): SearchResultNode<TData, unknown, string | number>[] {
@@ -122,13 +99,8 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
       if (rootInsert) return typed<TData>(rootInsert);
 
       const flat = executeFlatArrayFastPath({
-        data: this.data,
-        criteria,
-        actions,
-        options,
-        stats,
-        warnedUnknownOps: this.warnedUnknownOps,
-        immutableApplied: this.immutableApplied,
+        data: this.data, criteria, actions, options, stats,
+        warnedUnknownOps: this.warnedUnknownOps, immutableApplied: this.immutableApplied,
       });
       if (flat) {
         this._data = flat.data;
