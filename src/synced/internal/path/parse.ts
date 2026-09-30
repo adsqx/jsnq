@@ -63,7 +63,8 @@ function scanPath(path: string): string[] {
 }
 
 export function splitJsonPath(path: string): string[] {
-  if (!path) return [];
+  // Non-string input (untyped callers) has always produced an empty split rather than a throw.
+  if (!path || typeof path !== 'string') return [];
   let out: string[];
   if (path.indexOf('\\') < 0 && path.indexOf('[') < 0) {
     // Plain dotted path: no escapes or brackets, so a native split is exact.
