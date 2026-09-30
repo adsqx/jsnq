@@ -136,7 +136,7 @@ rows.length; // => 2
 | --- | --- | --- | --- | --- |
 | In place | default | mutated | nothing | data you own; scripts; server-side transforms |
 | Immutable | `{ immutable: true }` | untouched | the **entire** input, once | simple safe updates where sharing does not matter |
-| Immutable, lazy | `{ immutable: 'auto' }` | untouched when actions exist | the entire input, only if the pipeline has actions | one code path for reads and writes |
+| Immutable, lazy | `{ immutable: 'auto' }` | untouched | the entire input, only if the pipeline has actions | one code path for reads and writes |
 | Copy-on-write | [`tryFastPipelineMutation`](#copy-on-write-host-helpers) | untouched | matched items only; everything else keeps its identity | state stores, `===` change detection |
 
 ```ts

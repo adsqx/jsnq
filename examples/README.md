@@ -17,7 +17,7 @@ fails, so they double as a regression check for the documented behaviour.
 From the repository root (requires [Bun](https://bun.sh)):
 
 ```sh
-bun install          # once
+bun install          # once (only needed for the typecheck script)
 bun run examples     # all six, in order
 bun examples/03-structural-move-copy.ts   # or any single file
 bun run examples:typecheck                # tsc over the examples
