@@ -1,4 +1,4 @@
-import type { Action, CompiledCriterion, PipelineStats, SearchOptions } from './types';
+import type { Action, CompiledCriterion, SearchOptions } from './types';
 import { criteriaMatch } from './match';
 import { compileCriteriaPredicate } from './compiled-predicate';
 import { compileFlatMutation } from './compiled-mutation';
@@ -6,6 +6,7 @@ import { applyValueAction, isValueAction, prepareActions } from './actions';
 import { cloneJson, getBySegments, splitPath } from './utils';
 import { createJsonPathPlanFromSegments } from './data-engine';
 import { hasNestedCriterionCandidate } from './flat-array-fast-path';
+import { createStats } from '../internal/run-options';
 
 /**
  * Host-commit fast path for `store.mutate(where(...), update(...))`-style calls.
@@ -194,9 +195,7 @@ export function tryFastPipelineMutation<TData = unknown>(
   const standardActions = intent.actions.filter((_, i) => sugarPatches[i] === null);
   const prepared = prepareActions(standardActions);
   // Throwaway stats/ctx: applyValueAction records into them; hosts only need the value.
-  const stats = { warnings: [], operations: [] } as unknown as PipelineStats;
-  stats.replaces = stats.updates = stats.mergeUpdates = stats.deletedKeys = 0;
-  stats.resultsFound = 0;
+  const stats = createStats();
   const strictCtx = { warnedUnknownOps: new Set<string>(), warnings: stats.warnings };
 
   // Codegen fast path for the per-item match (null → interpreter; results identical).

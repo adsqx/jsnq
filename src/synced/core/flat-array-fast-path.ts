@@ -12,6 +12,7 @@ import { compileCriteriaPredicate } from './compiled-predicate';
 import { applyValueAction, isValueAction, prepareActions } from './actions';
 import { compileFlatMutation } from './compiled-mutation';
 import { insertRelative } from './ops';
+import { resolveRun, resolveTraversal } from '../internal/run-options';
 
 /**
  * Fast path for the most common large-data shape: a flat root array filtered by
@@ -42,15 +43,12 @@ export function executeFlatArrayFastPath<TData>(
 ): FlatArrayFastPathResult<TData> | null {
   if (!canUseFlatArrayFastPath(params)) return null;
 
-  const shouldClone = params.options.immutable === true ||
-    (params.options.immutable === 'auto' && params.actions.length > 0);
+  const { limit, hasLimit, shouldClone, needPaths } = resolveRun(params.options, params.actions.length);
   const workingData = shouldClone && !params.immutableApplied
     ? cloneJson(params.data)
     : params.data;
   const items = workingData as unknown[];
   const results: SearchResultNode<TData, unknown, string | number>[] = [];
-  const limit = params.options.limit ?? (params.options.earlyTermination ? 1 : undefined);
-  const needPaths = params.options.returnPaths !== false && (params.options.buildMeta || params.actions.length > 0);
   const isDeleteElementOnly =
     params.actions.length === 1 && params.actions[0].type === 'delete_element';
   const relativeInsert = getRelativeInsert(params.actions);
@@ -63,7 +61,6 @@ export function executeFlatArrayFastPath<TData>(
   // Whole-loop codegen: match + mutate in one inlined function. Skip when there is
   // a limit/earlyTermination (compiled loop does not truncate) or when the only
   // action is delete_element (handled by the optimized path below).
-  const hasLimit = params.options.limit !== undefined || params.options.earlyTermination;
   const compiledMutation = !hasLimit && !isDeleteElementOnly && !relativeInsert
     ? compileFlatMutation<unknown>(params.criteria, params.actions)
     : null;
@@ -193,7 +190,7 @@ export function hasNestedCriterionCandidate(
   criteria: ReadonlyArray<CompiledCriterion>,
   options: Readonly<SearchOptions>
 ): boolean {
-  const maxDepth = options.maxDepth ?? 10;
+  const { maxDepth, includeArrays, includeObjects } = resolveTraversal(options);
   if (maxDepth <= 1) return false;
 
   const firstSegments: string[] = [];
@@ -203,8 +200,6 @@ export function hasNestedCriterionCandidate(
     firstSegments.push(firstSegment);
   }
 
-  const includeArrays = !!options.includeArrays;
-  const includeObjects = !!options.includeObjects;
   const nodes: object[] = [];
   const depths: number[] = [];
 
