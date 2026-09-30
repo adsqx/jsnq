@@ -319,8 +319,43 @@ Limits, as of 0.1.4:
 
 Numbers below were measured on this repository at 0.1.4, not estimated.
 
-<!-- PERF:START -->
-<!-- PERF:END -->
+**Method.** `bun run test:bench` (`test/jsnq-pipeline-bench.ts`) reports, per case, the median of three
+timed samples, each averaged over 15 to 1000 iterations, with data preparation outside the timed window.
+I ran it 7 times and `bun test/jsnq-vs-native.test.ts` 9 times, and the table gives the **median across
+those runs** with the min to max range. Environment: Intel Xeon @ 2.80 GHz, 4 vCPU, 16 GB, Linux 6.18
+(Firecracker VM), Bun 1.3.11, `bun` with default options. The machine was shared: load average was
+2.4 to 3.4 during the runs, which is why some ranges are wide. Treat the absolute values as indicative of this
+machine only.
+
+| Case (name in the benchmark) | What it does | Median ms (min to max) |
+| --- | --- | ---: |
+| `search-only-flat-10000` | two `where()` criteria over 10,000 rows, 2,400 matches | 4.40 (4.07 to 5.12) |
+| `flat-fastpath-where-update-10000` | `where` + `update` on 10,000 rows, 5,000 updated, in place | 2.75 (2.30 to 3.74) |
+| `host-cow-commit-only-update-10000` | the same update through `tryFastPipelineMutation` (copy-on-write) | 2.89 (2.17 to 4.32) |
+| `diagnostic-paths+operation-log-update-10000` | the in-place update again, with default options (result paths and operation log on) | 3.43 (3.12 to 5.55) |
+| `nested-dfs-update-d7-b3` | `where` + `replace` in a 3,280-node tree, 243 updates | 0.66 (0.54 to 0.98) |
+| `deep-at-search-cms` | `where('fields@type', ...)` over a 1,200-node nested tree | 4.42 (4.27 to 5.43) |
+| `immutable-deep-update-d6-b3` | `immutable: true` update in a 1,093-node tree, 81 updates | 1.13 (1.01 to 1.61) |
+| `insert-root-array-o1` | `insert(x, 'inside')` on a 50-row array root | 0.0035 (0.0029 to 0.0077) |
+
+**Against hand-written code.** `test/jsnq-vs-native.test.ts` times a jsnq deep scan
+(`where('type', '===', 'text')` with `returnPaths: false, buildMeta: false`) against a plain recursive
+JavaScript walk over the same 2,000-record tree, averaged over 50 iterations per run. Median of 9 runs:
+jsnq **1.53 ms**, hand-written **0.73 ms**, a ratio of **2.06x** (range 1.58x to 2.56x). A full deep scan
+in jsnq therefore costs about twice a plain recursive walk. The flat-array cases above are where the
+compiled fast paths apply.
+
+What to take from it: keep `returnPaths: false` and `trackOperations: false` when you only need the
+resulting data (about 20% less time on the in-place update above). The benchmark also verifies the
+correctness of every case it times.
+
+To reproduce:
+
+```sh
+bun install
+for i in 1 2 3 4 5 6 7; do bun run test:bench; done
+for i in 1 2 3 4 5 6 7 8 9; do bun test/jsnq-vs-native.test.ts; done
+```
 
 ## FAQ
 
