@@ -8,9 +8,9 @@ import {
   writeJsonPath,
 } from './data-engine';
 
-export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
-export const isRecordObject = (v: unknown): v is Record<string, unknown> => isObject(v) && !Array.isArray(v);
-const isNumeric = (s: string): boolean => /^\d+$/.test(s);
+import { isNumericSegment as isNumeric, isObject, isRecordObject } from '../internal/guards';
+
+export { isObject, isRecordObject };
 
 // splitPath shares the engine's bounded plan cache, so path parsing behaves (and
 // performs) identically in every host project; returns a fresh, mutable copy.

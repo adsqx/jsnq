@@ -3,7 +3,7 @@ import { isObject, isRecordObject, dfsIterator, scanJsonMatches, splitPath, getB
 import { getOperatorFn } from './operators-registry';
 import { compileCriterion } from './match';
 import { compileCriteriaPredicate } from './compiled-predicate';
-import { isForbiddenPathSegment } from '../../utils/path-safety';
+import { isForbiddenKey } from '../internal/guards';
 
 type MutableRecord = Record<string, unknown>;
 
@@ -33,7 +33,7 @@ export function getAssignmentEffect(
   errorFactory: (conflictKey: string) => Error
 ): 'write' | 'skip' {
   const keyStr = String(key);
-  if (isForbiddenPathSegment(keyStr)) {
+  if (isForbiddenKey(keyStr)) {
     throw new Error(`Unsafe object key '${keyStr}'`);
   }
   return resolveOverwriteEffect(keyStr in target, keyStr, options, errorFactory);
