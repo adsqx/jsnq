@@ -1,5 +1,5 @@
 import type { CompiledCriterion } from './types';
-import { isOperatorKnown } from './operators-registry';
+import { canCompile, criteriaCodegenable, criteriaSignature, makeFactoryCache, opExpr } from '../internal/codegen/common';
 
 /**
  * Optional codegen fast path for the criteria matcher. Compiles a set of single-segment,
@@ -10,58 +10,20 @@ import { isOperatorKnown } from './operators-registry';
  * SAFETY: returns null (caller keeps the interpreter `criteriaMatch`) whenever anything is
  * not trivially codegen-able — deep `@`, multi-segment paths, regex / custom operators, an
  * empty segment, or environments where `new Function` is blocked (strict CSP). The generated
- * code mirrors criterionMatches + operators-registry EXACTLY; the fastpath-parity / edge /
- * vs-native suites guard that equivalence.
+ * code mirrors criterionMatches + the built-in operator table EXACTLY; the fastpath-parity /
+ * edge / vs-native suites guard that equivalence.
  */
 
 export type CompiledPredicate = (data: unknown) => boolean;
 
-let canCompile: boolean | null = null;
-function compilationAvailable(): boolean {
-  if (canCompile !== null) return canCompile;
-  try { new Function('return true'); canCompile = true; } catch { canCompile = false; }
-  return canCompile;
-}
-
 type Factory = (vals: unknown[]) => CompiledPredicate;
-const factoryCache = new Map<string, Factory | null>();
-let cacheMax = 2000;
-export function setCompiledPredicateCacheLimit(limit: number): void { cacheMax = Math.max(0, limit | 0); }
-export function clearCompiledPredicateCache(): void { factoryCache.clear(); }
+const factories = makeFactoryCache<Factory>(2000);
+export function setCompiledPredicateCacheLimit(limit: number): void { factories.setLimit(limit); }
+export function clearCompiledPredicateCache(): void { factories.clear(); }
 
-// Boolean expression for an operator with value-var `a` and criterion-value ref `b`,
-// byte-for-byte equivalent to operators-registry.ts. Returns null for non-codegen ops.
-export function opExpr(op: string, a: string, b: string): string | null {
-  switch (op) {
-    case '==': return `${a} == ${b}`;
-    case '===': return `${a} === ${b}`;
-    case '!=': return `${a} != ${b}`;
-    case '!==': return `${a} !== ${b}`;
-    case '<': return `${a} < ${b}`;
-    case '<=': return `${a} <= ${b}`;
-    case '>': return `${a} > ${b}`;
-    case '>=': return `${a} >= ${b}`;
-    case 'includes': return `(typeof ${a}==='string' ? ${a}.includes(String(${b})) : Array.isArray(${a}) ? ${a}.includes(${b}) : false)`;
-    case '!includes': return `(typeof ${a}==='string' ? !${a}.includes(String(${b})) : Array.isArray(${a}) ? !${a}.includes(${b}) : true)`;
-    case 'startsWith': return `(typeof ${a}==='string' && typeof ${b}==='string' ? ${a}.startsWith(${b}) : false)`;
-    case 'endsWith': return `(typeof ${a}==='string' && typeof ${b}==='string' ? ${a}.endsWith(${b}) : false)`;
-    case 'isArray': return `(typeof ${b}==='boolean' ? Array.isArray(${a})===${b} : Array.isArray(${a}))`;
-    case 'isObject': return `(typeof ${b}==='boolean' ? (typeof ${a}==='object'&&${a}!==null&&!Array.isArray(${a}))===${b} : (typeof ${a}==='object'&&${a}!==null&&!Array.isArray(${a})))`;
-    default: return null;
-  }
-}
-
-function isCodegenable(criteria: ReadonlyArray<CompiledCriterion>): boolean {
-  if (criteria.length === 0) return false;
-  for (const c of criteria) {
-    if (c.isDeep) return false;
-    if (c.segments.length !== 1) return false;
-    if (c.segments[0] === undefined) return false;
-    if (!isOperatorKnown(String(c.operator))) return false;
-    if (opExpr(String(c.operator), 'a', 'b') === null) return false;
-  }
-  return true;
-}
+// Boolean expression for an operator with value-var `a` and criterion-value ref `b`
+// (shared with the runtime registry via internal/codegen/builtin-ops). Null for non-codegen ops.
+export { opExpr };
 
 function buildFactory(criteria: ReadonlyArray<CompiledCriterion>): Factory | null {
   const lines: string[] = [
@@ -71,7 +33,7 @@ function buildFactory(criteria: ReadonlyArray<CompiledCriterion>): Factory | nul
   for (let i = 0; i < criteria.length; i++) {
     const key = JSON.stringify(criteria[i].segments[0]); // exact key string, escaped
     const a = `a${i}`;
-    const op = opExpr(String(criteria[i].operator), a, `vals[${i}]`)!;
+    const op = opExpr(String(criteria[i].operator), a, `vals[${i}]`);
     // Mirrors criterionMatches: array → numeric index in range (NaN/out-of-range = no match);
     // object → own/inherited key must be present (`in`); primitive already returned false above.
     lines.push(`var ${a};`);
@@ -92,17 +54,7 @@ function buildFactory(criteria: ReadonlyArray<CompiledCriterion>): Factory | nul
  * and bound to the current criterion values on each call.
  */
 export function compileCriteriaPredicate(criteria: ReadonlyArray<CompiledCriterion>): CompiledPredicate | null {
-  if (!compilationAvailable() || !isCodegenable(criteria)) return null;
-  const sig = criteria
-    .map((c) => `${String(c.segments[0]).length}:${c.segments[0]}:${String(c.operator).length}:${c.operator}`)
-    .join('|');
-  let factory = factoryCache.get(sig);
-  if (factory === undefined) {
-    factory = buildFactory(criteria);
-    if (factoryCache.size >= cacheMax) factoryCache.clear();
-    factoryCache.set(sig, factory);
-  }
-  if (!factory) return null;
-  const vals = criteria.map((c) => c.value);
-  return factory(vals);
+  if (!canCompile() || !criteriaCodegenable(criteria)) return null;
+  const factory = factories.getOrBuild(criteriaSignature(criteria), () => buildFactory(criteria));
+  return factory ? factory(criteria.map((c) => c.value)) : null;
 }
