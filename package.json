@@ -73,7 +73,9 @@
     "test:vs-native": "bun test/jsnq-vs-native.test.ts",
     "test:bench": "bun test/jsnq-pipeline-bench.ts",
     "verify:exports": "node scripts/verify-exports.mjs",
-    "test:proto-guard": "bun test/jsnq-prototype-guard.test.ts"
+    "test:proto-guard": "bun test/jsnq-prototype-guard.test.ts",
+    "examples": "bun examples/index.ts",
+    "examples:typecheck": "tsc --noEmit -p examples/tsconfig.json"
   },
   "keywords": [
     "json",
