@@ -1,3 +1,5 @@
+import { assertSafeSegments, isForbiddenSegment, isNumericSegment, isObjectLike } from '../internal/guards';
+
 export type JsonDataPathMode = 'exact' | 'branch';
 
 export interface JsonPathPlan {
@@ -46,7 +48,6 @@ export interface JsonResolvedParent {
   segments: string[];
 }
 
-const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
 let planCacheMax = 5000;
 // Generational eviction: `current` fills up, then becomes `previous` in an O(1) swap.
 // The previous strategy deleted the oldest key via `planCache.keys().next().value` on every
@@ -123,19 +124,6 @@ export function clearJsonPlanCache(): void {
   planCacheMetrics.evictions = 0;
 }
 
-function isObjectLike(value: unknown): value is Record<string, unknown> {
-  return value !== null && (typeof value === 'object' || typeof value === 'function');
-}
-
-function isNumericSegment(segment: string | null | undefined): boolean {
-  if (!segment) return false;
-  for (let i = 0; i < segment.length; i++) {
-    const code = segment.charCodeAt(i);
-    if (code < 48 || code > 57) return false;
-  }
-  return true;
-}
-
 export function splitJsonPath(path: string): string[] {
   if (!path) return [];
   const out: string[] = [];
@@ -200,12 +188,6 @@ export function splitJsonPath(path: string): string[] {
   push();
   assertSafeSegments(out, path);
   return out;
-}
-
-function assertSafeSegments(segments: readonly string[], path: string): void {
-  for (const segment of segments) {
-    if (FORBIDDEN_SEGMENTS.has(segment)) throw new Error(`Unsafe path segment in '${path}'`);
-  }
 }
 
 export function createJsonPathPlan(path: string): JsonPathPlan {
@@ -414,10 +396,7 @@ export function getJsonBySegments<T = unknown>(obj: unknown, segments: readonly 
     // this one takes raw segments, so without the check `['__proto__']` handed back
     // Object.prototype to the caller. The length test is a cheap pre-filter: the three
     // forbidden names are 9 or 11 characters, so ordinary keys never reach the Set lookup.
-    const segmentLength = segment.length;
-    if ((segmentLength === 9 || segmentLength === 11) && FORBIDDEN_SEGMENTS.has(segment)) {
-      return undefined;
-    }
+    if (isForbiddenSegment(segment)) return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
   return current as T | undefined;

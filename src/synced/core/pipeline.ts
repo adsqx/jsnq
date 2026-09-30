@@ -20,6 +20,7 @@ import { compileCriteriaPredicate } from './compiled-predicate';
 import { applyValueAction, prepareActions, PreparedAction } from './actions';
 import { assertCanInsertIntoTargetPath, assignWithPolicy, canInsertIntoResolvedTarget, canInsertRelative, canRemoveFromOriginal, getAssignmentEffect, insertIntoTargetPath, insertRelative, removeFromOriginal, selectTargets, fanoutMatchesToTargets, orderMatchesForMove, wouldCreateMoveCycle, wouldCreateMoveCycleAtPath } from './ops';
 import { executeFlatArrayFastPath } from './flat-array-fast-path';
+import { createStats, DEFAULT_MAX_DEPTH, resetStats, resolveRun, resolveTraversal } from '../internal/run-options';
 
 // Actions that need parent/index metadata from the traversal to apply correctly.
 const META_ACTIONS = new Set<Action['type']>([
@@ -47,22 +48,7 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
   readonly actions: ReadonlyArray<Action>;
   readonly options: Readonly<SearchOptions>;
 
-  private readonly stats: PipelineStats = {
-    searchTime: 0,
-    nodesVisited: 0,
-    resultsFound: 0,
-    maxDepth: 0,
-    replaces: 0,
-    updates: 0,
-    mergeUpdates: 0,
-    deletedKeys: 0,
-    deletedElements: 0,
-    inserted: 0,
-    moved: 0,
-    copied: 0,
-    warnings: [],
-    operations: [],
-  };
+  private readonly stats: PipelineStats = createStats();
   private warnedUnknownOps = new Set<string>();
   private strictCtx: StrictOperatorContext = { warnedUnknownOps: this.warnedUnknownOps, warnings: this.stats.warnings };
   private immutableApplied = false;
@@ -147,11 +133,7 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
   private execute(): SearchResultNode<TData, unknown, string | number>[] {
     const now = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
     const t0 = now();
-    Object.assign(this.stats, {
-      searchTime: 0, nodesVisited: 0, resultsFound: 0, maxDepth: 0,
-      replaces: 0, updates: 0, mergeUpdates: 0, deletedKeys: 0, deletedElements: 0,
-      inserted: 0, moved: 0, copied: 0, warnings: [], operations: [],
-    });
+    resetStats(this.stats);
     this.strictCtx = { warnedUnknownOps: this.warnedUnknownOps, warnings: this.stats.warnings };
 
     // Enforce strict-operator policy once per execute() instead of once per visited node.
@@ -167,11 +149,10 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
     const out: SearchResultNode<TData, unknown, string | number>[] = [];
     try {
       const needMeta = this.actionsRequireMeta(); // auto: only when actions truly need parent/index metadata
-      const needPaths = this.options.returnPaths !== false && (this.options.buildMeta || this.actions.length > 0);
-      const limit = this.options.limit ?? (this.options.earlyTermination ? 1 : undefined);
+      const { needPaths, limit, shouldClone } = resolveRun(this.options, this.actions.length);
+      const traversal = resolveTraversal(this.options);
 
       // Immutable mode: clone data before traversal so iterator nodes point at the working copy.
-      const shouldClone = (this.options.immutable === true) || (this.options.immutable === 'auto' && this.actions.length > 0);
       if (shouldClone && !this.immutableApplied) {
         this._data = cloneJson(this.data);
         this.immutableApplied = true;
@@ -212,9 +193,7 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
 
       if (hasDeepArrayCriteria) {
         for (const node of dfsIterator(this.data, {
-          maxDepth: this.options.maxDepth ?? 10,
-          includeArrays: !!this.options.includeArrays,
-          includeObjects: !!this.options.includeObjects,
+          ...traversal,
           buildMeta: needMeta,
           returnPaths: needPaths,
         })) {
@@ -227,9 +206,7 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
         }
       } else {
         const scan = scanJsonMatches(this.data, {
-          maxDepth: this.options.maxDepth ?? 10,
-          includeArrays: !!this.options.includeArrays,
-          includeObjects: !!this.options.includeObjects,
+          ...traversal,
           buildMeta: needMeta,
           returnPaths: needPaths,
         }, (node) => this.criteria.length === 0 || (
@@ -308,7 +285,7 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
             c.value,
             currentNode.path || [],
             currentNode.depth,
-            this.options.maxDepth ?? 10
+            this.options.maxDepth ?? DEFAULT_MAX_DEPTH
           )) {
             nextNodes.push(deepNode as SearchResultNode);
           }
@@ -360,9 +337,7 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
 
   private executeSearchOnlyFastPath(limit: number | undefined): SearchResultNode<unknown, unknown, string | number>[] {
     const out: SearchResultNode<unknown, unknown, string | number>[] = [];
-    const maxDepth = this.options.maxDepth ?? 10;
-    const includeArrays = !!this.options.includeArrays;
-    const includeObjects = !!this.options.includeObjects;
+    const { maxDepth, includeArrays, includeObjects } = resolveTraversal(this.options);
     // Codegen fast path: one compiled predicate replaces per-node operator indirection.
     // null (deep/multi-seg/custom-op/CSP) → keep the interpreter; results stay identical.
     const pred = compileCriteriaPredicate(this.criteria);
