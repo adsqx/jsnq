@@ -1,12 +1,34 @@
 /**
- * Option derivation and stats lifecycle shared by the pipeline and its fast paths.
- * Type-only imports from ./types; no runtime dependencies.
+ * Option derivation, stats lifecycle and the per-action stat table shared by the pipeline and
+ * its fast paths. Type-only imports; no runtime dependencies.
  */
-import type { PipelineStats } from './types/stats';
-import type { SearchOptions } from './types/options';
+import type { ActionType } from './types/actions';
+import type { PipelineStats, SearchOptions } from './types/model';
 
 /** Default traversal depth used when `SearchOptions.maxDepth` is unset. */
 export const DEFAULT_MAX_DEPTH = 10;
+
+/** Minimal sink for non-fatal warnings; `PipelineStats` satisfies it. */
+export interface WarnSink { warnings: string[] }
+
+/** Counters of PipelineStats that are plain numbers. */
+export type NumericStat = { [K in keyof PipelineStats]: PipelineStats[K] extends number ? K : never }[keyof PipelineStats];
+
+/** The counter each action type bumps (single source for the registry, the interpreter and the compiled loop). */
+export const ACTION_STAT = {
+  replace: 'replaces', update: 'updates', merge_update: 'mergeUpdates', delete_key: 'deletedKeys',
+  delete_element: 'deletedElements', insert: 'inserted', insert_to: 'inserted',
+  move: 'moved', move_matches: 'moved', move_first_to_matches: 'moved', move_matches_overwrite: 'moved',
+  copy: 'copied', copy_matches: 'copied', copy_first_to_matches: 'copied',
+} as const satisfies { readonly [K in ActionType]: NumericStat };
+
+/** Shared per-execution state handed to node/global action handlers. */
+export interface RunCtx {
+  /** Root of the working data (already cloned when immutable). */
+  readonly data: unknown;
+  readonly options: Readonly<SearchOptions>;
+  readonly stats: PipelineStats;
+}
 
 /** Fresh zeroed stats object (arrays are new instances). */
 export function createStats(): PipelineStats {

@@ -1,10 +1,7 @@
 /*
- * Single-action structural shortcuts (host fast paths).
- *
- * These used to live only in solid-pipeline-bridge.ts, so Angular paid the full
- * clone+pipeline cost for the same shapes. They are part of the shared library so
- * every host commits the same COW results. Each guard mirrors the pipeline's own
- * semantics exactly (parity-tested):
+ * Single-action structural shortcuts and the `update({patch})` sugar (host fast paths), shared by
+ * every host so all commit the same COW results. Each guard mirrors the pipeline's own semantics
+ * exactly (parity-tested):
  *   - insert at array root:    splice at clamped numeric key, else push
  *   - delete_key, no criteria: pipeline strips the key from EVERY object node
  *     at any depth, so we only fast-path arrays of flat items (primitive
@@ -13,12 +10,16 @@
  * Anything outside a guard returns undefined → caller runs the full pipeline.
  */
 import type { Action, ActionMap } from '../types/actions';
-import { getBySegments, splitPath } from '../../core/utils';
-import { isObject } from '../guards';
-import { spliceClamped } from '../splice';
-import type { FastMutationResult, PipelineIntent } from './types';
+import type { CompiledCriterion } from '../types/model';
+import { cloneJson, getBySegments, splitPath } from '../tree-utils';
+import { isObject, isRecordObject, spliceClamped } from '../guards';
+import { criteriaMatch } from '../../core/match';
+import { createJsonPathPlanFromSegments } from '../../core/data-engine';
+import { FASTPATH_OPTIONS, type FastMutationResult, type PipelineIntent } from './intent';
+import { newStrictContext } from './guard';
 
 type Container = Record<string, unknown>;
+export type SugarPatch = Container;
 
 /** Object whose values are all primitives (no nested containers). */
 function isPlainFlatObject(item: object): boolean {
@@ -117,4 +118,78 @@ export function tryFastStructuralMutation<TData = unknown>(
   const handler = HANDLERS[action.type as StructuralType] as (current: unknown, action: Action) => unknown;
   const value = handler(currentValue, action);
   return value === undefined ? undefined : { value: value as TData, mutations: 1, matched: 0, affectedPaths: null };
+}
+
+export const keyOf = (action: Action): unknown => ('key' in action ? action.key : undefined);
+
+/** The sugar patch of a flat-array action, or null for any other action. */
+export function sugarPatchOf(action: Action): SugarPatch | null {
+  if (action.type !== 'update' && action.type !== 'replace') return null;
+  const key = keyOf(action);
+  return isRecordObject(key) ? key : null;
+}
+
+/** update({patch}) / replace({patch}) sugar on object trees (key is the patch). */
+export function isDeepSugarAction(action: unknown): boolean {
+  const a = action as { type?: unknown; key?: unknown } | null;
+  return !!a && (a.type === 'update' || a.type === 'replace') && (typeof a.key === 'object' || a.key == null);
+}
+
+/**
+ * Sugar deep update: where('deep.path.to.leaf', op, X) + update({patch}).
+ * The patch is applied at the PARENT object of the leaf named by the last
+ * where segment; when the leaf exists but is null/undefined the patch object
+ * replaces the leaf slot itself. This form is not representable in the raw
+ * pipeline (action keys must be string paths), so this helper is the
+ * canonical semantics for every host. Input is never mutated.
+ */
+export function applyDeepSugarPatch(current: unknown, criteria: ReadonlyArray<unknown>, actions: ReadonlyArray<unknown>): unknown {
+  if (!isObject(current)) return current;
+
+  const compiledCriteria = criteria as CompiledCriterion[];
+  if (!criteriaMatch(compiledCriteria, current, FASTPATH_OPTIONS, newStrictContext())) return current;
+
+  // Clone once (deep structures in the sugar cases are small).
+  const result = cloneJson(current);
+
+  const sugarActions = (actions as Array<{ key?: unknown; value?: unknown }>).filter(isDeepSugarAction);
+  if (sugarActions.length === 0) return result;
+
+  for (const crit of compiledCriteria) {
+    const segs: string[] = Array.isArray(crit?.segments) ? crit.segments : [];
+    if (segs.length === 0) continue;
+
+    // Parent path of the leaf targeted by the where (owner of the matched prop).
+    const parentSegs = createJsonPathPlanFromSegments(segs).parentSegments;
+
+    // Replace-slot only when the last segment key EXISTS on the owner in the
+    // ORIGINAL data and its value is null/undefined; absent keys keep the
+    // assign-at-parent behavior.
+    const lastSeg = segs[segs.length - 1];
+    let isNullOrUndefLeafTarget = false;
+    if (lastSeg != null) {
+      const owner = getBySegments(current, parentSegs);
+      if (isObject(owner) && lastSeg in owner && owner[lastSeg] == null) isNullOrUndefLeafTarget = true;
+    }
+
+    // Resolve (or create) the patch target inside the clone.
+    let target: Record<string, unknown> = result;
+    for (const seg of parentSegs) {
+      if (!isObject(target[seg])) target[seg] = {};
+      target = target[seg] as Record<string, unknown>;
+    }
+
+    for (const act of sugarActions) {
+      const patch = (act.key && typeof act.key === 'object') ? act.key : (act.value || {});
+      if (patch && typeof patch === 'object') {
+        if (lastSeg != null && isNullOrUndefLeafTarget) {
+          target[lastSeg] = patch;
+        } else {
+          Object.assign(target, patch);
+        }
+      }
+    }
+  }
+
+  return result;
 }

@@ -1,11 +1,11 @@
 /**
  * Overwrite-policy resolution and keyed/dotted-path assignment used by insert, move and copy.
- * Depends on core/utils for path access only (never on ops/pipeline).
+ * Depends on tree-utils for path access only (never on ops/pipeline).
  */
-import type { SearchOptions } from './types/options';
-import type { WarnSink } from './types/stats';
+import type { SearchOptions } from './types/model';
+import type { WarnSink } from './run-options';
 import { isForbiddenKey } from './guards';
-import { hasPath, setByPath } from '../core/utils';
+import { hasPath, setByPath } from './tree-utils';
 
 type MutableRecord = Record<string, unknown>;
 type OverwriteEffect = 'write' | 'skip';

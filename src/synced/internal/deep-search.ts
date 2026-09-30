@@ -4,9 +4,8 @@
  * `@id` tests the current node itself.
  */
 import { isObject } from './guards';
-import { getBySegments, splitPath } from './path-facade';
+import { getBySegments, splitPath } from './tree-utils';
 
-// Deep search path parsing - recognises `@` as the deep array search operator
 export interface DeepSearchPath {
   isDeep: boolean;
   arrayKey?: string;      // Array key for deep search (e.g. "fields", "layout")
@@ -27,6 +26,7 @@ export function parseDeepSearchPath(path: string): DeepSearchPath {
 }
 
 type OpFn = (a: unknown, b: unknown) => boolean;
+type DeepMatch = { data: unknown; path?: string[]; depth: number; parent?: unknown; parentKey?: string | number };
 
 interface ArrayFrame {
   arr: unknown[];
@@ -34,14 +34,6 @@ interface ArrayFrame {
   basePath: string[];
   depth: number;
   nextIndex: number;
-}
-
-export interface DeepArrayMatch {
-  data: unknown;
-  path?: string[];
-  depth: number;
-  parent?: unknown;
-  parentKey?: string | number;
 }
 
 /**
@@ -103,7 +95,7 @@ class ArrayCursor {
   }
 
   /** The element reported by the last successful `next()`. */
-  match(): DeepArrayMatch {
+  match(): DeepMatch {
     const frame = this.frame!;
     return { data: this.item, path: this.pathOf(frame, this.index), depth: frame.depth, parent: frame.arr, parentKey: this.index };
   }
@@ -120,7 +112,7 @@ class ArrayCursor {
   }
 }
 
-// Deep array matching - true as soon as one element (or nested element) matches
+/** True as soon as one element (or nested element) matches. */
 export function deepArrayMatch(
   node: unknown,
   arrayKey: string | undefined,
@@ -134,7 +126,7 @@ export function deepArrayMatch(
   return new ArrayCursor(node, arrayKey, searchSegments, opFn, value, [], 0, maxDepth).next();
 }
 
-// Deep array iterator - yield all matching elements from nested arrays
+/** Yields every matching element of the (nested) arrays. */
 export function* deepArrayIterator(
   node: unknown,
   arrayKey: string | undefined,
@@ -146,7 +138,7 @@ export function* deepArrayIterator(
   maxDepth: number = Number.POSITIVE_INFINITY
 ): Generator<{ data: unknown; path?: string[]; depth: number; parent?: unknown; parentKey?: string | number }> {
   if (!arrayKey) {
-    // @id - yield node itself if matches
+    // `@id`: the node itself is the only candidate
     if (opFn(getBySegments(node, searchSegments), value)) yield { data: node, path, depth };
     return;
   }

@@ -17,21 +17,17 @@
  * probe): whenever DFS could match a nested node we return undefined and the
  * caller falls back to the full pipeline — semantics stay identical.
  */
-import type { Action } from '../../core/types';
+import type { Action } from '../types/actions';
 import { applyValueAction, isValueAction, prepareActions } from '../../core/actions';
 import { compileFlatMutation } from '../../core/compiled-mutation';
-import { cloneJson } from '../../core/utils';
+import { cloneJson } from '../tree-utils';
 import { createStats } from '../run-options';
 import { isSingleSegmentKey } from '../codegen/common';
-import { hasNestedCriterionCandidate, isFlatScanEligible, isFlatScanShape } from './guard';
-import { collectPipelineIntent } from './intent';
-import { flatMatcher, newStrictContext } from './matcher';
-import { sugarPatchOf } from './sugar';
-import type { SugarPatch } from './sugar';
-import { FASTPATH_OPTIONS } from './types';
-import type { FastMutationOptions, FastMutationResult, PipelineIntent } from './types';
-
-const keyOf = (action: Action): unknown => ('key' in action ? action.key : undefined);
+import { flatMatcher, hasNestedCriterionCandidate, isFlatScanEligible, isFlatScanShape, newStrictContext } from './guard';
+import {
+  collectPipelineIntent, FASTPATH_OPTIONS, type FastMutationOptions, type FastMutationResult, type PipelineIntent,
+} from './intent';
+import { keyOf, sugarPatchOf, type SugarPatch } from './structural';
 
 /** Concrete single-segment string keys of value actions, or null when any action is not that shape. */
 function preciseActionKeys(actions: ReadonlyArray<Action>): string[] | null {

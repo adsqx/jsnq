@@ -2,14 +2,14 @@
  * Appliers for the "value" actions (replace / update / merge_update / delete_key). Each works on a
  * PreparedAction whose key was compiled to a JsonPathPlan up front, so per-node application never
  * re-parses paths and single-segment keys take a direct property access.
- * The stat bump and operation label are shared post-steps of the caller (see core/actions.ts).
+ * The counter bump and operation label are shared post-steps of the caller (see core/actions.ts).
  */
 import type { ActionMap, ActionType, MergeUpdateAction } from '../types/actions';
-import type { SearchOptions } from '../types/options';
-import type { PipelineStats } from '../types/stats';
+import type { PipelineStats, SearchOptions } from '../types/model';
 import type { PreparedAction } from '../../core/actions';
 import { deleteJsonPath, getJsonBySegments, hasJsonPath, writeJsonPath } from '../../core/data-engine';
-import { deepMerge, isObject } from '../../core/utils';
+import { isObject } from '../guards';
+import { deepMerge } from '../tree-utils';
 
 /** A PreparedAction whose `action` is narrowed to the given action type(s). */
 export interface PreparedOf<K extends ActionType> extends PreparedAction { action: ActionMap[K] }

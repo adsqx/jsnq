@@ -11,8 +11,7 @@ import { applyValueAction, isValueAction, prepareActions } from './actions';
 import { compileFlatMutation } from './compiled-mutation';
 import { insertRelative } from './ops';
 import { resolveRun } from '../internal/run-options';
-import { hasNestedCriterionCandidate, isFlatScanEligible } from '../internal/fastpath/guard';
-import { flatMatcher } from '../internal/fastpath/matcher';
+import { flatMatcher, hasNestedCriterionCandidate, isFlatScanEligible } from '../internal/fastpath/guard';
 
 export { hasNestedCriterionCandidate };
 

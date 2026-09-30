@@ -1,8 +1,8 @@
 /** Source removal, cycle detection and removal ordering for move operations. */
 import type { InsertPosition } from './types/actions';
-import type { SearchResultNode } from './types/pipeline';
+import type { SearchResultNode } from './types/model';
 import { isObject, isRecordObject } from './guards';
-import { splitPath, type ResolvedTargetPath } from '../core/utils';
+import { splitPath, type ResolvedTargetPath } from './tree-utils';
 
 const hasOwn = (obj: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(obj, key);
 

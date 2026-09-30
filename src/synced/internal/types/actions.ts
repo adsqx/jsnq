@@ -1,35 +1,25 @@
 /**
- * Action shapes and the `ActionMap` discriminant table.
- *
- * `ActionMap` maps each action `type` string to its specific interface, so typed
- * dispatch tables can be written without casts:
- *
- *   const handlers: { [K in ActionType]: (a: ActionMap[K], ...) => void } = { ... };
- *   `Action` is the union of all values of `ActionMap`.
+ * Action shapes and the `ActionMap` discriminant table: `ActionMap[K]` is the interface of
+ * action type `K`, so typed dispatch tables need no casts (`{ [K in ActionType]: (a: ActionMap[K]) => … }`).
  */
-import type { ComparisonOperator } from './operators';
+import type { ComparisonOperator } from './model';
 
 export type InsertPosition = 'inside' | 'before' | 'after';
 
-// Helper types for action properties
 type ActionKey = string | number;
 type ActionValue = unknown | ((current: unknown, node: unknown) => unknown);
 type ActionMode = InsertPosition | undefined;
 
 export interface BaseAction { type: ActionType; }
 
-/**
- * Shared shape of the move/copy "matches" action family: select targets by
- * (targetKey, targetOperator, targetValue) and insert with mode/key semantics.
- * key: array index for inside on arrays; string key for objects.
- */
+/** Shared shape of the move/copy "matches" family: select targets by (targetKey, targetOperator, targetValue). */
 interface TargetMatchAction<T extends ActionType> extends BaseAction {
   type: T;
   targetKey: string;
   targetOperator: ComparisonOperator;
   targetValue: unknown;
   mode?: ActionMode;
-  key?: ActionKey;
+  key?: ActionKey; // array index for inside on arrays; string key for objects
 }
 
 export interface ReplaceAction extends BaseAction {
@@ -73,7 +63,7 @@ export interface InsertToAction extends BaseAction {
   data: unknown;
   position: string;
   mode?: ActionMode;
-  key?: ActionKey; // when inside and target is array: numeric index
+  key?: ActionKey;
 }
 
 export interface MoveMatchesAction extends TargetMatchAction<'move_matches'> {}
@@ -90,19 +80,14 @@ export interface CopyAction extends BaseAction {
   type: 'copy';
   position: string;
   mode?: ActionMode;
-  key?: ActionKey; // when inside and target is array: numeric index
+  key?: ActionKey;
 }
 
 export interface CopyMatchesAction extends TargetMatchAction<'copy_matches'> {}
-
 export interface MoveFirstToMatchesAction extends TargetMatchAction<'move_first_to_matches'> {}
-
 export interface CopyFirstToMatchesAction extends TargetMatchAction<'copy_first_to_matches'> {}
 
-/**
- * Discriminant table: action `type` string -> specific action interface.
- * (Key order is deliberate: it keeps the printed `ActionType` union stable in emitted typings.)
- */
+/** Action `type` string -> action interface. (Key order is deliberate: it keeps the printed `ActionType` union stable.) */
 export interface ActionMap {
   move_matches: MoveMatchesAction;
   copy_matches: CopyMatchesAction;
@@ -121,24 +106,13 @@ export interface ActionMap {
 }
 
 export type ActionType = Extract<keyof ActionMap, string>;
-/** Union of all actions; equals `ActionMap[ActionType]` (asserted below). Listed explicitly to keep emitted typings stable. */
+/** Union of all actions (listed explicitly: it keeps the printed union order stable); asserted below to equal `ActionMap[ActionType]`. */
 export type Action =
-  | ReplaceAction
-  | UpdateAction
-  | MergeUpdateAction
-  | DeleteKeyAction
-  | DeleteElementAction
-  | InsertAction
-  | InsertToAction
-  | MoveAction
-  | MoveMatchesAction
-  | MoveMatchesOverwriteAction
-  | CopyAction
-  | CopyMatchesAction
-  | MoveFirstToMatchesAction
+  | ReplaceAction | UpdateAction | MergeUpdateAction | DeleteKeyAction | DeleteElementAction | InsertAction | InsertToAction
+  | MoveAction | MoveMatchesAction | MoveMatchesOverwriteAction | CopyAction | CopyMatchesAction | MoveFirstToMatchesAction
   | CopyFirstToMatchesAction;
 
-// Compile-time check (type-only, no runtime output): errors if `Action` drifts from `ActionMap`.
+// Compile-time check (no runtime output): errors if `Action` drifts from `ActionMap`.
 type _Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type _Assert<T extends true> = T;
 type _ActionMatchesMap = _Assert<_Same<Action, ActionMap[ActionType]>>;

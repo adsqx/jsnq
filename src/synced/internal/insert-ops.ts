@@ -3,13 +3,10 @@
  * The pairs stay separate on purpose: their edge behavior differs subtly (see comments).
  */
 import type { InsertPosition } from './types/actions';
-import type { SearchOptions } from './types/options';
-import type { SearchResultNode } from './types/pipeline';
-import type { WarnSink } from './types/stats';
-import { isRecordObject } from './guards';
+import type { SearchOptions, SearchResultNode } from './types/model';
+import { isRecordObject, spliceClamped } from './guards';
 import { assignKeyOrPath, canAssignKeyOrPath, canInsertKeyed, insertKeyed } from './assign-policy';
-import { clampIndex, spliceClamped } from './splice';
-import { deepMerge, resolveTargetPath, type ResolvedTargetPath } from '../core/utils';
+import { deepMerge, resolveTargetPath, type ResolvedTargetPath } from './tree-utils';
 
 const KEY_REQUIRED_INSIDE = "insert_to/moveTo/copyTo: explicit string 'key' is required when inserting into an object target (inside)";
 const KEY_REQUIRED_RELATIVE = "insert_to/moveTo/copyTo: explicit string 'key' is required when inserting before/after an object key";
@@ -164,7 +161,7 @@ export function insertIntoTargetPath(
   if (!targetParent) return;
   if (Array.isArray(targetParent)) {
     if (typeof targetKey === 'number' && (targetNode === undefined || targetNode === null)) {
-      spliceClamped(targetParent, clampIndex(targetKey) + relativeOffset(pos), data);
+      targetParent.splice(Math.max(0, targetKey) + relativeOffset(pos), 0, data);
     } else {
       const index = targetParent.indexOf(targetNode);
       if (index !== -1) targetParent.splice(index + relativeOffset(pos), 0, data);

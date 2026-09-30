@@ -4,17 +4,27 @@
  * - `scanMatches`: DFS with per-match actions (the general case);
  * - `sequentialMatches`: deep `@` array criteria, which fan a node out into nested elements.
  */
-import type { CompiledCriterion } from '../types/operators';
-import type { SearchOptions } from '../types/options';
-import type { SearchResultNode } from '../types/pipeline';
-import type { PipelineStats } from '../types/stats';
+import type { ActionMap, ActionType } from '../types/actions';
+import type { CompiledCriterion, SearchOptions, PipelineStats, SearchResultNode } from '../types/model';
 import type { PreparedAction } from '../../core/actions';
-import type { RunCtx } from './context';
-import type { CriteriaPlan } from './criteria';
-import { resolveTraversal, type Traversal } from '../run-options';
-import { applyNodeActions } from './apply';
+import { applyValueAction } from '../../core/actions';
 import { criterionMatches } from '../../core/match';
-import { deepArrayIterator, dfsIterator, getBySegments, isObject, scanJsonMatches } from '../../core/utils';
+import { specOf, type NodeSpec } from '../action-registry';
+import { isObject } from '../guards';
+import { ACTION_STAT, resolveTraversal, type RunCtx, type Traversal } from '../run-options';
+import { getBySegments } from '../tree-utils';
+import { deepArrayIterator } from '../deep-search';
+import { dfsIterator, scanJsonMatches } from '../traverse';
+import type { CompiledPredicate } from '../../core/compiled-predicate';
+
+export interface CriteriaPlan {
+  /** Some criterion is a deep `@` path. */
+  hasDeep: boolean;
+  /** Some deep criterion descends into array elements (needs the sequential matcher). */
+  hasDeepArray: boolean;
+  /** Node matcher: always-true for no criteria, else the codegen predicate, else the interpreter. */
+  match: CompiledPredicate;
+}
 
 export interface SearchRun {
   ctx: RunCtx;
@@ -28,6 +38,30 @@ export interface SearchRun {
   steps: PreparedAction[] | null;
   /** Apply node actions only after the whole match set is known (see `defer` in the action registry). */
   defer: boolean;
+}
+
+// One generic call site per phase: the handlers' bivariant parameters let a union of action types
+// through without casts (see the note on ValueSpec in the registry).
+function runNode<K extends ActionType>(spec: NodeSpec<K>, ctx: RunCtx, node: SearchResultNode, action: ActionMap[K]): boolean {
+  return spec.apply(ctx, node, action);
+}
+
+/** The prepared actions applied per matched node (value + node phase); null when there are none. */
+export function nodeSteps(prepared: PreparedAction[] | null): PreparedAction[] | null {
+  const steps = prepared?.filter((p) => p.plan !== null || specOf(p.action)?.phase === 'node');
+  return steps && steps.length > 0 ? steps : null;
+}
+
+/** Apply every step to one matched node, in declaration order (value actions log/count themselves; node actions are counted here). */
+export function applyNodeActions(ctx: RunCtx, node: SearchResultNode, prepared: PreparedAction[]): void {
+  for (const p of prepared) {
+    if (p.plan !== null) {
+      applyValueAction(node.data, p, ctx.options, ctx.stats);
+      continue;
+    }
+    const spec = specOf(p.action);
+    if (spec?.phase === 'node' && runNode(spec, ctx, node, p.action)) ctx.stats[ACTION_STAT[p.action.type]]++;
+  }
 }
 
 /** Match collection without actions or result paths. */

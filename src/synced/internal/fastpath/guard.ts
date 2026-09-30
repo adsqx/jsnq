@@ -1,9 +1,11 @@
 /**
- * Shared eligibility for the flat-array fast paths (pipeline + host commit): a flat
- * scan is only valid when no nested descendant could also match the criteria.
+ * Shared eligibility (a flat scan is only valid when no nested descendant could also match the
+ * criteria) and per-item matcher of the flat-array fast paths (pipeline + host commit).
  */
-import type { CompiledCriterion, SearchOptions } from '../../core/types';
+import type { CompiledCriterion, SearchOptions } from '../types/model';
 import { resolveTraversal } from '../run-options';
+import { criteriaMatch, type StrictOperatorContext } from '../../core/match';
+import { compileCriteriaPredicate, type CompiledPredicate } from '../../core/compiled-predicate';
 
 const hasOwn = Object.prototype.hasOwnProperty;
 
@@ -100,4 +102,18 @@ export function isFlatScanEligible(
   options: Readonly<SearchOptions>
 ): data is unknown[] {
   return Array.isArray(data) && isFlatScanShape(criteria, options) && !hasNestedCriterionCandidate(data, criteria, options);
+}
+
+/** Codegen predicate for `criteria`, else an interpreter closure; results are identical. */
+export function flatMatcher(
+  criteria: ReadonlyArray<CompiledCriterion>,
+  options: Readonly<SearchOptions>,
+  ctx: StrictOperatorContext
+): CompiledPredicate {
+  return compileCriteriaPredicate(criteria) ?? ((item) => criteriaMatch(criteria, item, options, ctx));
+}
+
+/** Fresh strict-operator context (unknown-operator warnings go to `warnings`). */
+export function newStrictContext(warnings: string[] = []): StrictOperatorContext {
+  return { warnedUnknownOps: new Set<string>(), warnings };
 }

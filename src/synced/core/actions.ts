@@ -2,6 +2,7 @@ import type { Action, PipelineStats, SearchOptions } from './types';
 import type { ActionMap } from '../internal/types/actions';
 import { createJsonPathPlan, type JsonPathPlan } from './data-engine';
 import { ACTIONS, isValueAction as isRegisteredValueAction, type ValueActionType as RegisteredValueType, type ValueSpec } from '../internal/action-registry';
+import { ACTION_STAT, type NumericStat } from '../internal/run-options';
 import { valueLabel, type PreparedOf } from '../internal/pipeline/value-actions';
 
 export { computeMergedValue } from '../internal/pipeline/value-actions';
@@ -17,10 +18,11 @@ export { computeMergedValue } from '../internal/pipeline/value-actions';
  * keys take a direct property access fast path.
  */
 
+// Literal list on purpose (resolving the registry-derived type would pull the whole registry into the printed API);
+// the assertion errors at compile time if it drifts from the registry's 'value' phase.
 type ValueActionType = 'replace' | 'update' | 'merge_update' | 'delete_key';
-// Compile-time check (no runtime output): errors if this list drifts from the registry's 'value' phase.
-type _ValueTypesMatch<T extends true> = T;
-type _AssertValueTypes = _ValueTypesMatch<[ValueActionType] extends [RegisteredValueType] ? ([RegisteredValueType] extends [ValueActionType] ? true : false) : false>;
+type _Assert<T extends true> = T;
+type _ValueTypesMatch = _Assert<[ValueActionType] extends [RegisteredValueType] ? ([RegisteredValueType] extends [ValueActionType] ? true : false) : false>;
 
 export function isValueAction(type: Action['type']): type is ValueActionType {
   return isRegisteredValueAction(type);
@@ -46,19 +48,20 @@ class PreparedValue<K extends ValueActionType> implements PreparedOf<K> {
     readonly plan: JsonPathPlan,
     readonly single: string | null,
     private readonly spec: ValueSpec<K>,
+    private readonly stat: NumericStat,
     private readonly label: string,
   ) {}
 
   run(target: unknown, options: Readonly<SearchOptions>, stats: PipelineStats): void {
     this.spec.apply(target, this, options, stats);
-    stats[this.spec.stat]++;
+    stats[this.stat]++;
     if (options.trackOperations !== false) stats.operations.push(this.label);
   }
 }
 
 // One generic call site: the handlers' bivariant parameters let a union of value actions through without casts.
 function bind<K extends ValueActionType>(action: ActionMap[K], spec: ValueSpec<K>, plan: JsonPathPlan, single: string | null): PreparedValue<K> {
-  return new PreparedValue(action, plan, single, spec, valueLabel(action, plan.path));
+  return new PreparedValue(action, plan, single, spec, ACTION_STAT[action.type], valueLabel(action, plan.path));
 }
 
 export function prepareAction(action: Action): PreparedAction {

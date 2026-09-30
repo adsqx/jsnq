@@ -1,8 +1,40 @@
-import { toPlan } from './plan-cache';
-import type { JsonDataPathMode, JsonMutationKind, JsonMutationResult, JsonMutationResultInit, JsonPathPlan } from './types';
+/** Mutation results (stable hidden class, lazy `parents`) and affected-path helpers. Types are public via core/data-engine. */
+import { toPlan, type JsonDataPathMode, type JsonPathPlan } from './plan';
+
+export type JsonMutationKind = 'set' | 'delete' | 'noop';
+
+export interface JsonMutationResult {
+  path: string;
+  kind: JsonMutationKind;
+  previous: unknown;
+  next: unknown;
+  existed: boolean;
+  changed: string[];
+  inserted: string[];
+  deleted: string[];
+  parents: string[];
+  descendants: string[];
+  branchReplaced: boolean;
+  affectedPaths: string[];
+}
+
+export interface JsonMutationResultInit {
+  path: string | JsonPathPlan;
+  kind: JsonMutationKind;
+  previous?: unknown;
+  next?: unknown;
+  existed?: boolean;
+  changed?: readonly string[];
+  inserted?: readonly string[];
+  deleted?: readonly string[];
+  parents?: readonly string[];
+  descendants?: readonly string[];
+  branchReplaced?: boolean;
+  affectedPaths?: readonly string[];
+}
 
 /** Shared, frozen empty list: results reuse it instead of allocating per-result empty arrays. */
-export const EMPTY_JSON_PATHS: string[] = Object.freeze([]) as unknown as string[];
+const EMPTY_JSON_PATHS: string[] = Object.freeze([]) as unknown as string[];
 
 /** Dotted prefixes of `segments`: `count` running joins (`a`, `a.b`, ...). */
 function prefixPaths(segments: readonly string[], count: number): string[] {
@@ -18,8 +50,7 @@ function prefixPaths(segments: readonly string[], count: number): string[] {
 export function getJsonAffectedPaths(pathOrPlan: string | JsonPathPlan, mode: JsonDataPathMode = 'exact'): string[] {
   const plan = toPlan(pathOrPlan);
   if (plan.segments.length === 0) return [''];
-  if (mode === 'exact') return [plan.path];
-  return prefixPaths(plan.segments, plan.segments.length);
+  return mode === 'exact' ? [plan.path] : prefixPaths(plan.segments, plan.segments.length);
 }
 
 function getParentAffectedPaths(plan: JsonPathPlan): string[] {
@@ -41,10 +72,9 @@ function uniqueJsonPaths(paths: readonly (string | null | undefined)[]): string[
 }
 
 /**
- * Mutation result with a stable hidden class. `parents` is computed lazily via a
- * shared prototype getter: per-instance Object.defineProperty accessors made every
- * exact-path write allocate closures and de-optimize V8 inline caches, which
- * dominated browser write profiles (createMutationResult + GC > 55% self time).
+ * Mutation result with a stable hidden class. `parents` is computed lazily via a shared
+ * prototype getter: per-instance Object.defineProperty accessors made every exact-path write
+ * allocate closures and de-optimize V8 inline caches (createMutationResult + GC > 55% self time).
  */
 class JsonMutationResultImpl implements JsonMutationResult {
   path: string;
@@ -62,18 +92,9 @@ class JsonMutationResultImpl implements JsonMutationResult {
   private _parents: string[] | null;
 
   constructor(
-    plan: JsonPathPlan,
-    kind: JsonMutationKind,
-    previous: unknown,
-    next: unknown,
-    existed: boolean,
-    changed: string[],
-    inserted: string[],
-    deleted: string[],
-    descendants: string[],
-    branchReplaced: boolean,
-    affectedPaths: string[],
-    parents: string[] | null
+    plan: JsonPathPlan, kind: JsonMutationKind, previous: unknown, next: unknown, existed: boolean,
+    changed: string[], inserted: string[], deleted: string[], descendants: string[],
+    branchReplaced: boolean, affectedPaths: string[], parents: string[] | null
   ) {
     this.path = plan.path;
     this.kind = kind;
@@ -101,11 +122,7 @@ class JsonMutationResultImpl implements JsonMutationResult {
 
 /** Allocation-light result for the exact single-path set hot path (proxy writes). */
 export function createExactSetResult(
-  plan: JsonPathPlan,
-  previous: unknown,
-  next: unknown,
-  existed: boolean,
-  branchReplaced: boolean
+  plan: JsonPathPlan, previous: unknown, next: unknown, existed: boolean, branchReplaced: boolean
 ): JsonMutationResult {
   const changed = [plan.path];
   return new JsonMutationResultImpl(
@@ -122,11 +139,7 @@ export function createMutationResult(init: JsonMutationResultInit): JsonMutation
   const deleted = uniqueJsonPaths(init.deleted ?? EMPTY_JSON_PATHS);
   const descendants = uniqueJsonPaths(init.descendants ?? EMPTY_JSON_PATHS);
   const affectedPaths = uniqueJsonPaths(init.affectedPaths ?? [
-    ...(init.parents ?? getParentAffectedPaths(plan)),
-    ...changed,
-    ...inserted,
-    ...deleted,
-    ...descendants,
+    ...(init.parents ?? getParentAffectedPaths(plan)), ...changed, ...inserted, ...deleted, ...descendants,
   ]);
   return new JsonMutationResultImpl(
     plan, init.kind, init.previous, init.next, init.existed ?? false,

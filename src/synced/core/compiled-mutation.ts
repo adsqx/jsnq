@@ -1,8 +1,9 @@
 import type { Action, CompiledCriterion, PipelineStats, SearchResultNode } from './types';
 import {
-  canCompile, criteriaCodegenable, criteriaSignature, isSingleSegmentKey, makeFactoryCache, opExpr, sigPart,
+  ACTION_CODEGEN, actionValue, canCompile, criteriaCodegenable, criteriaSignature, isCodegenAction, isSingleSegmentKey,
+  makeFactoryCache, opExpr, sigPart,
 } from '../internal/codegen/common';
-import { ACTION_CODEGEN, actionValue, isCodegenAction } from '../internal/codegen/action-codegen';
+import { ACTION_STAT } from '../internal/run-options';
 
 /**
  * Optional codegen fast path for flat-array mutations. Compiles a set of
@@ -78,7 +79,7 @@ function buildFactory(
     const spec = ACTION_CODEGEN[a.type];
     const key = JSON.stringify(a.key);
     operationPushes.push(`if (track) operations.push('${a.type} ' + ${key});`);
-    statIncrements.push(`stats.${spec.stat} += matched;`);
+    statIncrements.push(`stats.${ACTION_STAT[a.type]} += matched;`);
     actionLines.push(
       `if (warnPaths && !Object.prototype.hasOwnProperty.call(target, ${key})) warnings.push("${a.type}: path '" + ${key} + "' did not exist${spec.warnMsg}");`,
       spec.emit(key, `vals[${criteria.length + i}]`, i)

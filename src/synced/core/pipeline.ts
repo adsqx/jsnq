@@ -13,9 +13,7 @@ import type { StrictOperatorContext } from './match';
 import { prepareActions, PreparedAction } from './actions';
 import { executeFlatArrayFastPath } from './flat-array-fast-path';
 import { createStats, DEFAULT_MAX_DEPTH, resetStats, resolveRun } from '../internal/run-options';
-import { planCriteria } from '../internal/pipeline/criteria';
-import { rootArrayInsert } from '../internal/pipeline/root-insert';
-import { runSearch } from '../internal/pipeline/run';
+import { planCriteria, rootArrayInsert, runSearch } from '../internal/pipeline/run';
 
 const now = (): number => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
