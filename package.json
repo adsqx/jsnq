@@ -1,7 +1,7 @@
 {
   "name": "@adsq/jsnq",
   "version": "0.1.4",
-  "description": "Framework-agnostic JSON pipeline engine: where/update/move/copy/insert/delete over nested JSON trees, with copy-on-write fast paths. Zero runtime dependencies.",
+  "description": "Framework-agnostic JSON pipeline engine: where/update/move/copy/insert/delete over flat arrays and deeply nested trees, with copy-on-write fast paths, typed paths and a prototype-guarded path engine. Zero runtime dependencies.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/adsqx/jsnq.git"
@@ -55,7 +55,9 @@
     "dist",
     "dist-cjs",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "SKILL.md",
+    "AGENTS.md"
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && npm run build:esm && npm run build:cjs",
@@ -73,7 +75,9 @@
     "test:vs-native": "bun test/jsnq-vs-native.test.ts",
     "test:bench": "bun test/jsnq-pipeline-bench.ts",
     "verify:exports": "node scripts/verify-exports.mjs",
-    "test:proto-guard": "bun test/jsnq-prototype-guard.test.ts"
+    "test:proto-guard": "bun test/jsnq-prototype-guard.test.ts",
+    "examples": "bun examples/index.ts",
+    "examples:typecheck": "tsc --noEmit -p examples/tsconfig.json"
   },
   "keywords": [
     "json",
@@ -85,7 +89,14 @@
     "where",
     "update",
     "move",
-    "nested"
+    "nested",
+    "json-tree",
+    "path",
+    "deep-update",
+    "typed-paths",
+    "data-engine",
+    "zero-dependency",
+    "framework-agnostic"
   ],
   "license": "MIT",
   "devDependencies": {

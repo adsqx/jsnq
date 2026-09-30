@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@adsq/jsnq": ["../src/synced/index.ts"],
+      "@adsq/jsnq/core/*": ["../src/synced/core/*"],
+      "@adsq/jsnq/operators/*": ["../src/synced/operators/*"],
+      "@adsq/jsnq/data-engine": ["../src/data-engine.ts"]
+    }
+  },
+  "include": ["*.ts"]
+}

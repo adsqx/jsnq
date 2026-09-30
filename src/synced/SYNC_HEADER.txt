@@ -1,6 +1,9 @@
 /**
- * This entire synced/ directory is a verbatim copy from store4/store/jsnq/
- * DO NOT EDIT ANYTHING HERE.
- * Changes must come from the canonical source.
- * Keep this directory byte-identical across consumers; do not edit engine files in place.
+ * This directory is the canonical source of the @adsq/jsnq engine.
+ * It started as a verbatim copy of store4/store/jsnq/; that arrangement has ended and THIS
+ * repository is now the source of truth, so change engine files here.
+ * The sibling packages (@adsq/solid-signal-store, @adsq/angular-signal-store) consume the
+ * published @adsq/jsnq package and must not vendor or fork these files.
+ * Every file in core/ and operators/ is a public entry point through the package `exports`
+ * wildcards (./core/*, ./operators/*): never rename, move or delete them.
  */
