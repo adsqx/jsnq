@@ -7,6 +7,9 @@
 /** An object/array/function node the engine may read or write into. */
 export type JsonContainer = Record<string, unknown>;
 
+/** Own-property test that also works on prototype-less objects. */
+export const hasOwn = (obj: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(obj, key);
+
 /** Non-null object (arrays included). */
 export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 

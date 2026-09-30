@@ -32,38 +32,15 @@ export interface SearchOptions {
 }
 
 export interface PipelineStats {
-  searchTime: number;
-  nodesVisited: number;
-  resultsFound: number;
-  maxDepth: number;
-  replaces: number;
-  updates: number;
-  mergeUpdates: number;
-  deletedKeys: number;
-  deletedElements: number;
-  inserted: number;
-  moved: number;
-  copied: number;
-  warnings: string[];
-  operations: string[];
+  searchTime: number; nodesVisited: number; resultsFound: number; maxDepth: number;
+  replaces: number; updates: number; mergeUpdates: number; deletedKeys: number; deletedElements: number;
+  inserted: number; moved: number; copied: number;
+  warnings: string[]; operations: string[];
 }
 
 export type ComparisonOperator =
-  | '=='
-  | '==='
-  | '!='
-  | '!=='
-  | '>'
-  | '>='
-  | '<'
-  | '<='
-  | 'includes'
-  | '!includes'
-  | 'startsWith'
-  | 'endsWith'
-  | 'regex'
-  | 'isArray'
-  | 'isObject'
+  | '==' | '===' | '!=' | '!==' | '>' | '>=' | '<' | '<='
+  | 'includes' | '!includes' | 'startsWith' | 'endsWith' | 'regex' | 'isArray' | 'isObject'
   | (string & {});
 
 // Narrow built-in operators by value type (keeps registry extensibility)

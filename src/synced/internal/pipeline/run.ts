@@ -13,11 +13,7 @@ import {
 
 const MATCH_ALL: CompiledPredicate = () => true;
 
-/**
- * Enforces the strict-operator policy once per execute (instead of once per visited node) and picks
- * the matcher; after this the compiled predicate can replace the interpreter without losing
- * warnings / throw semantics.
- */
+/** Enforces the strict-operator policy once per execute (not per node) and picks the matcher; the compiled predicate then loses no warnings / throws. */
 export function planCriteria(criteria: ReadonlyArray<CompiledCriterion>, options: Readonly<SearchOptions>, ctx: StrictOperatorContext): CriteriaPlan {
   let hasDeep = false;
   let hasDeepArray = false;
@@ -28,8 +24,6 @@ export function planCriteria(criteria: ReadonlyArray<CompiledCriterion>, options
       if (c.deepArrayKey) hasDeepArray = true;
     }
   }
-  // The codegen predicate covers shallow, single-segment, built-in-operator criteria (null otherwise,
-  // e.g. deep/custom-op criteria or a strict CSP); it mirrors the interpreter exactly.
   const pred = hasDeep ? null : compileCriteriaPredicate(criteria);
   const match = criteria.length === 0 ? MATCH_ALL : pred ?? ((node: unknown) => criteriaMatch(criteria, node, options, ctx));
   return { hasDeep, hasDeepArray, match };

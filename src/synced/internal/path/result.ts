@@ -121,9 +121,7 @@ class JsonMutationResultImpl implements JsonMutationResult {
 }
 
 /** Allocation-light result for the exact single-path set hot path (proxy writes). */
-export function createExactSetResult(
-  plan: JsonPathPlan, previous: unknown, next: unknown, existed: boolean, branchReplaced: boolean
-): JsonMutationResult {
+export function createExactSetResult(plan: JsonPathPlan, previous: unknown, next: unknown, existed: boolean, branchReplaced: boolean): JsonMutationResult {
   const changed = [plan.path];
   return new JsonMutationResultImpl(
     plan, 'set', previous, next, existed,

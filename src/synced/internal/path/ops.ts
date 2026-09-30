@@ -1,9 +1,7 @@
 /** Read/write/delete on JSON values addressed by path plans, plus the write cursor. */
-import { isForbiddenSegment, isNumericSegment, isObjectLike, type JsonContainer } from '../guards';
+import { hasOwn, isForbiddenSegment, isNumericSegment, isObjectLike, type JsonContainer } from '../guards';
 import { toPlan, createJsonPathPlan, type JsonPathPlan, type JsonResolvedParent } from './plan';
 import { createExactSetResult, createMutationResult, getJsonAffectedPaths, type JsonMutationResult } from './result';
-
-const hasOwn = (target: object, key: string): boolean => Object.prototype.hasOwnProperty.call(target, key);
 
 export function getJsonBySegments<T = unknown>(obj: unknown, segments: readonly string[]): T | undefined {
   // Indexed loop (not for...of): avoids per-call iterator allocation on this hot path (~10-15%).
@@ -75,11 +73,7 @@ function walkParents(root: unknown, plan: JsonPathPlan, create: boolean): unknow
   return parent;
 }
 
-export function resolveJsonParentAndKey(
-  root: unknown,
-  pathOrPlan: string | JsonPathPlan,
-  options: { create?: boolean } = {}
-): JsonResolvedParent {
+export function resolveJsonParentAndKey(root: unknown, pathOrPlan: string | JsonPathPlan, options: { create?: boolean } = {}): JsonResolvedParent {
   const plan = toPlan(pathOrPlan);
   if (plan.segments.length === 0) return { parent: root, key: null, segments: plan.segments };
   return { parent: walkParents(root, plan, !!options.create), key: plan.key, segments: plan.segments };

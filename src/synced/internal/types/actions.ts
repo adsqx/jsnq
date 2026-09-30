@@ -15,24 +15,13 @@ export interface BaseAction { type: ActionType; }
 /** Shared shape of the move/copy "matches" family: select targets by (targetKey, targetOperator, targetValue). */
 interface TargetMatchAction<T extends ActionType> extends BaseAction {
   type: T;
-  targetKey: string;
-  targetOperator: ComparisonOperator;
-  targetValue: unknown;
+  targetKey: string; targetOperator: ComparisonOperator; targetValue: unknown;
   mode?: ActionMode;
   key?: ActionKey; // array index for inside on arrays; string key for objects
 }
 
-export interface ReplaceAction extends BaseAction {
-  type: 'replace';
-  key: string;
-  value: ActionValue;
-}
-
-export interface UpdateAction extends BaseAction {
-  type: 'update';
-  key: string;
-  value: ActionValue;
-}
+export interface ReplaceAction extends BaseAction { type: 'replace'; key: string; value: ActionValue; }
+export interface UpdateAction extends BaseAction { type: 'update'; key: string; value: ActionValue; }
 
 export interface MergeUpdateAction extends BaseAction {
   type: 'merge_update';
@@ -58,30 +47,17 @@ export interface MoveAction extends BaseAction {
   key?: ActionKey; // when inside and target is array: numeric index
 }
 
-export interface InsertToAction extends BaseAction {
-  type: 'insert_to';
-  data: unknown;
-  position: string;
-  mode?: ActionMode;
-  key?: ActionKey;
-}
+export interface InsertToAction extends BaseAction { type: 'insert_to'; data: unknown; position: string; mode?: ActionMode; key?: ActionKey; }
 
 export interface MoveMatchesAction extends TargetMatchAction<'move_matches'> {}
 
 export interface MoveMatchesOverwriteAction extends BaseAction {
   type: 'move_matches_overwrite';
-  targetKey: string;
-  targetOperator: ComparisonOperator;
-  targetValue: unknown;
+  targetKey: string; targetOperator: ComparisonOperator; targetValue: unknown;
   overwriteKey: string;
 }
 
-export interface CopyAction extends BaseAction {
-  type: 'copy';
-  position: string;
-  mode?: ActionMode;
-  key?: ActionKey;
-}
+export interface CopyAction extends BaseAction { type: 'copy'; position: string; mode?: ActionMode; key?: ActionKey; }
 
 export interface CopyMatchesAction extends TargetMatchAction<'copy_matches'> {}
 export interface MoveFirstToMatchesAction extends TargetMatchAction<'move_first_to_matches'> {}

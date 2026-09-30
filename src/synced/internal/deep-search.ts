@@ -1,7 +1,6 @@
 /**
- * `@` deep-array search: `fields@id` finds elements of `fields` (and of nested `fields`
- * arrays inside matching or non-matching elements) whose `id` satisfies an operator;
- * `@id` tests the current node itself.
+ * `@` deep-array search: `fields@id` finds elements of `fields` (and of nested `fields` arrays inside
+ * matching or non-matching elements) whose `id` satisfies an operator; `@id` tests the current node itself.
  */
 import { isObject } from './guards';
 import { getBySegments, splitPath } from './tree-utils';
@@ -37,11 +36,10 @@ interface ArrayFrame {
 }
 
 /**
- * Resumable walk over `arrayKey` arrays: every element is tested against `opFn`, and object
- * elements holding a nested `arrayKey` array are descended into (arrays already on the
- * current stack are skipped to stay cycle-safe). A matched element's own nested array is
- * visited after the match is consumed. Paths are only built on demand, so a boolean
- * caller pays for none.
+ * Resumable walk over `arrayKey` arrays: every element is tested against `opFn`, and object elements
+ * holding a nested `arrayKey` array are descended into (arrays already on the stack are skipped: cycle-safe).
+ * A matched element's own nested array is visited after the match is consumed. Paths are built on
+ * demand, so a boolean caller pays for none.
  */
 class ArrayCursor {
   private readonly keySegments: string[];

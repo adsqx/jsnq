@@ -7,10 +7,10 @@
 import type { Action, ActionMap, ActionType } from './types/actions';
 import type { PipelineStats, SearchOptions, SearchResultNode } from './types/model';
 import type { RunCtx } from './run-options';
-import { applyAssign, applyDeleteKey, applyMerge, type PreparedOf } from './pipeline/value-actions';
 import {
-  applyDeleteElement, applyInsert, applyInsertTo, applyMoveMatchesOverwrite, applyMoveOrCopy, fanoutApplier,
-} from './pipeline/structural-actions';
+  applyAssign, applyDeleteElement, applyDeleteKey, applyInsert, applyInsertTo, applyMerge, applyMoveMatchesOverwrite, applyMoveOrCopy,
+  fanoutApplier, type PreparedOf,
+} from './pipeline/actions';
 
 /** Predicate type with a bivariant parameter (see the note on `apply` below). */
 type Pred<A> = { bivarianceHack(a: A): boolean }['bivarianceHack'];

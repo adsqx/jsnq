@@ -2,7 +2,7 @@
  * Pure tree helpers: string-path facade over the shared plan cache, move/copy/insert target
  * resolution and structural deep merge. Re-exported by core/utils.
  */
-import { isNumericSegment, isObject } from './guards';
+import { hasOwn, isNumericSegment, isObject } from './guards';
 import {
   cloneJsonData, createJsonPathPlan, deleteJsonPath, getJsonBySegments, hasJsonPath, setJsonPlanCacheLimit, writeJsonPath,
 } from '../core/data-engine';
@@ -82,7 +82,7 @@ export function resolveTargetPath(root: unknown, path: string, create: boolean):
     }
     key = part;
     if (!isObject(parent)) return { targetNode: undefined, targetParent: parent, targetKey: key };
-    if (Object.prototype.hasOwnProperty.call(parent, key)) {
+    if (hasOwn(parent, key)) {
       node = parent[key];
       continue;
     }

@@ -3,9 +3,8 @@ import { getOperatorFn, isOperatorKnown } from './operators-registry';
 import { deepArrayMatch, getBySegments, isObject, parseDeepSearchPath, splitPath } from './utils';
 
 /**
- * Criteria compilation + matching, shared by the DFS pipeline, the flat-array
- * fast path and the sequential deep (`@`) matcher. Standalone: depends only on
- * the operator registry and pure tree utils, so it is independently testable.
+ * Criteria compilation + matching, shared by the DFS pipeline, the flat-array fast path and the
+ * sequential deep (`@`) matcher. Depends only on the operator registry and pure tree utils.
  */
 
 export interface StrictOperatorContext {
@@ -27,29 +26,20 @@ export function compileCriterion(key: string, operator: ComparisonOperator, valu
 }
 
 /** Apply the `operatorsStrict` policy for a possibly-unknown operator. */
-export function enforceKnownOperator(
-  criterion: CompiledCriterion,
-  options: Readonly<SearchOptions>,
-  ctx: StrictOperatorContext
-): void {
+export function enforceKnownOperator(criterion: CompiledCriterion, options: Readonly<SearchOptions>, ctx: StrictOperatorContext): void {
   if (criterion.knownOperator) return;
   const mode = options.operatorsStrict;
-  if (mode === 'throw') {
-    throw new Error(`jsnq: unknown comparison operator '${String(criterion.operator)}'`);
-  }
-  if (mode === 'warn') {
-    const key = String(criterion.operator);
-    if (!ctx.warnedUnknownOps.has(key)) {
-      ctx.warnedUnknownOps.add(key);
-      ctx.warnings.push(`unknown comparison operator '${key}'`);
-    }
+  const key = String(criterion.operator);
+  if (mode === 'throw') throw new Error(`jsnq: unknown comparison operator '${key}'`);
+  if (mode === 'warn' && !ctx.warnedUnknownOps.has(key)) {
+    ctx.warnedUnknownOps.add(key);
+    ctx.warnings.push(`unknown comparison operator '${key}'`);
   }
 }
 
 /**
- * Standard (non-deep) criterion check against a node value: the first segment
- * must be present on the node (array index in range / own object key), then the
- * extracted value is compared via the registered operator.
+ * Standard (non-deep) criterion check against a node value: the first segment must be present on
+ * the node (array index in range / object key), then the extracted value goes through the operator.
  */
 export function criterionMatches(criterion: CompiledCriterion, data: unknown): boolean {
   const seg0 = criterion.segments[0];
@@ -60,9 +50,8 @@ export function criterionMatches(criterion: CompiledCriterion, data: unknown): b
       } else {
         const idx = Number(seg0);
         if (Number.isNaN(idx) || idx < 0 || idx >= data.length) return false;
-        // Single-segment fast path for array nodes: the value is the element itself (index
-        // validated above). Direct indexing beats the generic segment walk ~4x here; the
-        // object and multi-segment paths are left byte-identical to avoid any JIT regression.
+        // Single-segment fast path for array nodes: direct indexing beats the generic segment walk ~4x;
+        // the object and multi-segment paths are left as-is to avoid any JIT regression.
         if (criterion.segments.length === 1) return criterion.opFn(data[idx], criterion.value);
       }
     } else if (isObject(data)) {
@@ -71,28 +60,19 @@ export function criterionMatches(criterion: CompiledCriterion, data: unknown): b
       return false;
     }
   }
-  const val = getBySegments(data, criterion.segments);
-  return criterion.opFn(val, criterion.value);
+  return criterion.opFn(getBySegments(data, criterion.segments), criterion.value);
 }
 
-/**
- * Full criteria conjunction (deep `@` criteria included) with strict-operator
- * policy applied per criterion, in order, stopping at the first failure.
- */
-export function criteriaMatch(
-  criteria: ReadonlyArray<CompiledCriterion>,
-  data: unknown,
-  options: Readonly<SearchOptions>,
-  ctx: StrictOperatorContext
-): boolean {
+/** Full criteria conjunction (deep `@` included) with the strict-operator policy applied per criterion, stopping at the first failure. */
+export function criteriaMatch(criteria: ReadonlyArray<CompiledCriterion>, data: unknown, options: Readonly<SearchOptions>, ctx: StrictOperatorContext): boolean {
   for (let i = 0; i < criteria.length; i++) {
     const c = criteria[i];
     enforceKnownOperator(c, options, ctx);
     if (c.isDeep) {
       if (!deepArrayMatch(data, c.deepArrayKey, c.segments, c.opFn, c.value, options.maxDepth ?? 10)) return false;
-      continue;
+    } else if (!criterionMatches(c, data)) {
+      return false;
     }
-    if (!criterionMatches(c, data)) return false;
   }
   return true;
 }

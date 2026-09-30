@@ -1,10 +1,8 @@
 /** Source removal, cycle detection and removal ordering for move operations. */
 import type { InsertPosition } from './types/actions';
 import type { SearchResultNode } from './types/model';
-import { isObject, isRecordObject } from './guards';
+import { hasOwn, isObject, isRecordObject } from './guards';
 import { splitPath, type ResolvedTargetPath } from './tree-utils';
-
-const hasOwn = (obj: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(obj, key);
 
 /** Index of `node.data` in its array parent: the `parentKey` hint when still accurate, else a search (-1 if absent). */
 function ownedIndex(parent: unknown[], node: SearchResultNode): number {
@@ -14,9 +12,7 @@ function ownedIndex(parent: unknown[], node: SearchResultNode): number {
     : parent.indexOf(node.data);
 }
 
-/**
- * True when the captured parent still owns this exact node.
- */
+/** True when the captured parent still owns this exact node. */
 export function canRemoveFromOriginal(node: SearchResultNode): boolean {
   if (!node || node.parent === undefined || node.parent === null || node.parentKey === undefined) return false;
   const { parent, parentKey } = node;
@@ -58,11 +54,7 @@ function containsObjectReference(root: unknown, candidate: unknown): boolean {
 }
 
 /** True when inserting `source` at `target` would attach it below itself. */
-export function wouldCreateMoveCycle(
-  source: unknown,
-  target: ResolvedTargetPath | SearchResultNode,
-  mode: InsertPosition = 'inside'
-): boolean {
+export function wouldCreateMoveCycle(source: unknown, target: ResolvedTargetPath | SearchResultNode, mode: InsertPosition = 'inside'): boolean {
   if (!isObject(source)) return false;
   const targetNode = 'targetNode' in target ? target.targetNode : target.data;
   const targetParent = 'targetParent' in target ? target.targetParent : target.parent;

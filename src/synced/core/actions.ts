@@ -3,19 +3,15 @@ import type { ActionMap } from '../internal/types/actions';
 import { createJsonPathPlan, type JsonPathPlan } from './data-engine';
 import { ACTIONS, isValueAction as isRegisteredValueAction, type ValueActionType as RegisteredValueType, type ValueSpec } from '../internal/action-registry';
 import { ACTION_STAT, type NumericStat } from '../internal/run-options';
-import { valueLabel, type PreparedOf } from '../internal/pipeline/value-actions';
+import { valueLabel, type PreparedOf } from '../internal/pipeline/actions';
 
-export { computeMergedValue } from '../internal/pipeline/value-actions';
+export { computeMergedValue } from '../internal/pipeline/actions';
 
 /**
- * Shared application of the "value" actions (replace / update / merge_update /
- * delete_key) against a single matched node. Used by both the DFS pipeline and
- * the flat-array fast path so the semantics, warnings and stats stay identical.
- * Which actions are value actions, and the stat each bumps, come from the action registry.
- *
- * Actions are prepared once per execute(): the path is compiled to a JsonPathPlan
- * up front, so per-node application never re-parses paths, and single-segment
- * keys take a direct property access fast path.
+ * Shared application of the "value" actions (replace / update / merge_update / delete_key) against
+ * a single matched node, used by the DFS pipeline and the flat-array fast paths so semantics,
+ * warnings and stats stay identical. Actions are prepared once per execute(): the key is compiled
+ * to a JsonPathPlan up front and single-segment keys take a direct property access.
  */
 
 // Literal list on purpose (resolving the registry-derived type would pull the whole registry into the printed API);
@@ -39,8 +35,8 @@ export interface PreparedAction {
 const isValueAct = (a: Action): a is ActionMap[ValueActionType] => isRegisteredValueAction(a.type);
 
 /**
- * Value action prepared by `prepareAction`: carries its registry spec and the constant operation-log
- * line (built once here instead of per hit), so the hot loop dispatches with one property call.
+ * Value action prepared by `prepareAction`: carries its registry spec, counter and the constant
+ * operation-log line (built once here instead of per hit), so the hot loop dispatches with one call.
  */
 class PreparedValue<K extends ValueActionType> implements PreparedOf<K> {
   constructor(
@@ -74,16 +70,8 @@ export function prepareActions(actions: ReadonlyArray<Action>): PreparedAction[]
   return actions.map(prepareAction);
 }
 
-/**
- * Apply a prepared value action to `target`. Returns false when the action is
- * not a value action (caller handles structural actions itself).
- */
-export function applyValueAction(
-  target: unknown,
-  prepared: PreparedAction,
-  options: Readonly<SearchOptions>,
-  stats: PipelineStats
-): boolean {
+/** Apply a prepared value action to `target`; false when it is not a value action (the caller handles structural ones). */
+export function applyValueAction(target: unknown, prepared: PreparedAction, options: Readonly<SearchOptions>, stats: PipelineStats): boolean {
   if (prepared instanceof PreparedValue) {
     prepared.run(target, options, stats);
     return true;

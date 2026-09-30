@@ -20,12 +20,7 @@ const ON_CONFLICT: Record<NonNullable<SearchOptions['overwritePolicy']>, Conflic
 
 export const insertConflictError = (conflictKey: string): Error => new Error(`insert overwrite prevented for key '${conflictKey}'`);
 
-export function resolveOverwriteEffect(
-  exists: boolean,
-  conflictKey: string,
-  options: SearchOptions | undefined,
-  errorFactory: (conflictKey: string) => Error
-): OverwriteEffect {
+export function resolveOverwriteEffect(exists: boolean, conflictKey: string, options: SearchOptions | undefined, errorFactory: (conflictKey: string) => Error): OverwriteEffect {
   return exists ? ON_CONFLICT[options?.overwritePolicy ?? 'overwrite'](conflictKey, errorFactory) : 'write';
 }
 
@@ -40,26 +35,16 @@ function keyExists(target: MutableRecord, key: string): boolean {
   return key in target;
 }
 
-/** Shared core: applies policy and the overwrite warning; true when the write should proceed. */
-function admitWrite(
-  exists: boolean,
-  key: string,
-  options: SearchOptions | undefined,
-  stats: WarnSink | undefined,
-  errorFactory: (conflictKey: string) => Error
-): boolean {
+/** Applies the policy and the overwrite warning; true when the write should proceed. */
+function admitWrite(exists: boolean, key: string, options: SearchOptions | undefined, stats: WarnSink | undefined, errorFactory: (conflictKey: string) => Error): boolean {
   const effect = resolveOverwriteEffect(exists, key, options, errorFactory);
   if (exists) warnOverwrite(options, stats, key);
   return effect === 'write';
 }
 
 export function assignWithPolicy(
-  target: MutableRecord,
-  key: string | number,
-  value: unknown,
-  options: SearchOptions | undefined,
-  stats: { warnings: string[] } | undefined,
-  errorFactory: (conflictKey: string) => Error
+  target: MutableRecord, key: string | number, value: unknown, options: SearchOptions | undefined,
+  stats: { warnings: string[] } | undefined, errorFactory: (conflictKey: string) => Error
 ): boolean {
   const keyStr = String(key);
   if (!admitWrite(keyExists(target, keyStr), keyStr, options, stats, errorFactory)) return false;
@@ -67,37 +52,26 @@ export function assignWithPolicy(
   return true;
 }
 
-export function getAssignmentEffect(
-  target: MutableRecord,
-  key: string | number,
-  options: SearchOptions | undefined,
-  errorFactory: (conflictKey: string) => Error
-): 'write' | 'skip' {
+export function getAssignmentEffect(target: MutableRecord, key: string | number, options: SearchOptions | undefined, errorFactory: (conflictKey: string) => Error): 'write' | 'skip' {
   const keyStr = String(key);
   return resolveOverwriteEffect(keyExists(target, keyStr), keyStr, options, errorFactory);
 }
 
 /** Assign at `key` on an object target; dotted keys go through path assignment. */
-export function assignKeyOrPath(
-  target: MutableRecord,
-  key: string,
-  value: unknown,
-  options: SearchOptions | undefined,
-  stats: WarnSink | undefined
-): boolean {
+export function assignKeyOrPath(target: MutableRecord, key: string, value: unknown, options: SearchOptions | undefined, stats: WarnSink | undefined): boolean {
   if (!key.includes('.')) return assignWithPolicy(target, key, value, options, stats, insertConflictError);
   if (!admitWrite(hasPath(target, key), key, options, stats, insertConflictError)) return false;
   setByPath(target, key, value);
   return true;
 }
 
-/** Preflight of {@link assignKeyOrPath}: true when policy permits the write (throws for `error` policy conflicts). */
+/** Preflight of {@link assignKeyOrPath} (throws for `error` policy conflicts). */
 export function canAssignKeyOrPath(target: MutableRecord, key: string, options: SearchOptions | undefined): boolean {
   const exists = key.includes('.') ? hasPath(target, key) : keyExists(target, key);
   return resolveOverwriteEffect(exists, key, options, insertConflictError) === 'write';
 }
 
-/** The array stored at a plain (non-dotted) `key`, if any: inserts push into it instead of overwriting. */
+/** The array at a plain (non-dotted) `key`, if any: inserts push into it instead of overwriting. */
 export function arrayAt(container: MutableRecord, key: string): unknown[] | undefined {
   if (key.includes('.')) return undefined;
   const value = container[key];
@@ -110,13 +84,7 @@ export function canInsertKeyed(container: MutableRecord, key: string, options: S
 }
 
 /** Insert under `key` of an object container: push into an existing array, else assign per policy. */
-export function insertKeyed(
-  container: MutableRecord,
-  key: string,
-  data: unknown,
-  options: SearchOptions | undefined,
-  stats: WarnSink | undefined
-): boolean {
+export function insertKeyed(container: MutableRecord, key: string, data: unknown, options: SearchOptions | undefined, stats: WarnSink | undefined): boolean {
   const existing = arrayAt(container, key);
   if (existing) {
     existing.push(data);

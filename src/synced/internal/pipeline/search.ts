@@ -70,9 +70,8 @@ export function searchOnly(data: unknown, { match }: CriteriaPlan, options: Read
   const traversal = resolveTraversal(options);
   const { maxDepth, includeArrays } = traversal;
 
-  // Top-level fast path: with maxDepth 1 an array root cannot be descended into, so the full DFS
-  // would only ever check the root + its direct items. Iterate them directly (no stack frames or
-  // child pushes), which is near-native for flat filtering. Stats are updated live like the DFS.
+  // Top-level fast path: with maxDepth 1 the DFS only checks the root + its direct items, so iterate
+  // them directly (no stack frames or child pushes): near-native flat filtering. Stats update live like the DFS.
   if (maxDepth === 1 && Array.isArray(data) && includeArrays) {
     stats.maxDepth = Math.max(stats.maxDepth, 1);
     stats.nodesVisited++; // root array node, checked first (depth 0)
@@ -108,8 +107,8 @@ export function scanMatches(data: unknown, run: SearchRun): SearchResultNode[] {
   const { ctx, plan, traversal, needMeta, needPaths, limit, steps, defer } = run;
   const out: SearchResultNode[] = [];
   const { match } = plan;
-  // The arrow (one shared function, unlike the per-query predicates) keeps scanJsonMatches' predicate
-  // call site monomorphic across queries; passing `match` directly measured slower on the bench.
+  // The arrow (one shared function, unlike per-query predicates) keeps scanJsonMatches' predicate call
+  // site monomorphic across queries; passing `match` directly measured slower.
   const scan = scanJsonMatches(data, { ...traversal, buildMeta: needMeta, returnPaths: needPaths }, (node) => match(node), (node) => {
     ctx.stats.resultsFound++;
     if (steps && !defer) applyNodeActions(ctx, node, steps);

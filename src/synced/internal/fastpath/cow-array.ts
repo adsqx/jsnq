@@ -1,21 +1,15 @@
 /**
- * Host-commit fast path for `store.mutate(where(...), update(...))`-style calls.
+ * Host-commit fast path for `store.mutate(where(...), update(...))`-style calls. Hosts normally
+ * deep-clone the branch, run the pipeline on the clone and commit it; for the #1 real-world shape
+ * (a flat array filtered by non-deep criteria and mutated only with value actions) that clones
+ * thousands of untouched items. This computes the same result copy-on-write: a new outer array,
+ * matched items cloned and mutated via the same `core/actions` appliers, untouched items shared.
  *
- * The generic flow used by host stores is: deep-clone the whole branch, run the
- * pipeline on the clone, commit the clone. For the #1 real-world shape — a flat
- * array filtered by non-deep criteria and mutated only with value actions —
- * that clones thousands of untouched items for nothing. This module computes
- * the same result with copy-on-write: a new outer array, matched items deep-
- * cloned and mutated via the exact same `actions.ts` appliers the pipeline
- * uses, untouched items shared by reference.
+ * Identity contract: the returned array is OWNED by the caller's store commit. Unmatched elements
+ * alias the input (which is never mutated), so treat the output as the next store state, not a deep snapshot.
  *
- * Identity contract: the returned array is OWNED by the caller's store commit.
- * Unmatched elements alias the input, so the input itself is never mutated, but
- * the output must be treated as the next store state, not as a deep snapshot.
- *
- * Guards mirror the pipeline's flat-array fast path (same nested-candidate
- * probe): whenever DFS could match a nested node we return undefined and the
- * caller falls back to the full pipeline — semantics stay identical.
+ * Guards mirror the pipeline's flat-array fast path (same nested-candidate probe): whenever DFS
+ * could match a nested node we return undefined and the caller runs the full pipeline.
  */
 import type { Action } from '../types/actions';
 import { applyValueAction, isValueAction, prepareActions } from '../../core/actions';
@@ -23,10 +17,10 @@ import { compileFlatMutation } from '../../core/compiled-mutation';
 import { cloneJson } from '../tree-utils';
 import { createStats } from '../run-options';
 import { isSingleSegmentKey } from '../codegen/common';
-import { flatMatcher, hasNestedCriterionCandidate, isFlatScanEligible, isFlatScanShape, newStrictContext } from './guard';
 import {
-  collectPipelineIntent, FASTPATH_OPTIONS, type FastMutationOptions, type FastMutationResult, type PipelineIntent,
-} from './intent';
+  collectPipelineIntent, flatMatcher, hasNestedCriterionCandidate, isFlatScanEligible, isFlatScanShape, newStrictContext,
+  FASTPATH_OPTIONS, type FastMutationOptions, type FastMutationResult, type PipelineIntent,
+} from './shared';
 import { keyOf, sugarPatchOf, type SugarPatch } from './structural';
 
 /** Concrete single-segment string keys of value actions, or null when any action is not that shape. */
@@ -50,11 +44,10 @@ function appendAffectedPaths(paths: string[], index: number, keys: ReadonlyArray
   for (const key of keys) paths.push(`${itemPath}.${key}`);
 }
 
-function isFastPathAction(action: Action): boolean {
-  if (sugarPatchOf(action)) return true;
+const isFastPathAction = (action: Action): boolean => {
   const key = keyOf(action);
-  return isValueAction(action.type) && typeof key === 'string' && key.length > 0;
-}
+  return !!sugarPatchOf(action) || (isValueAction(action.type) && typeof key === 'string' && key.length > 0);
+};
 
 function canFastPath(currentValue: unknown, intent: PipelineIntent): currentValue is unknown[] {
   if (intent.optionsTouched || !Array.isArray(currentValue)) return false;
@@ -63,12 +56,10 @@ function canFastPath(currentValue: unknown, intent: PipelineIntent): currentValu
 }
 
 /**
- * Affected leaf paths (relative to the branch) for the flat value-action shape, so a
- * host can wake exactly the changed leaves instead of the whole branch ("grained" wake).
- * Returns null whenever the shape is not the guarded flat value-action fast path (same
- * guards as tryFastPipelineMutation), in which case the caller must fall back to a normal
- * branch commit. Pure read: never mutates the input. Shared by every host (Solid bridge,
- * Angular proxy) so fine-grained mutate wake stays logically identical across engines.
+ * Affected leaf paths (relative to the branch) for the flat value-action shape, so a host can wake
+ * exactly the changed leaves ("grained" wake). Returns null whenever the shape is not the guarded
+ * fast path (same guards as tryFastPipelineMutation): the caller then commits the whole branch.
+ * Pure read; shared by every host so fine-grained wake stays identical across engines.
  */
 export function collectFlatValueActionPaths(currentValue: unknown, ops: ReadonlyArray<unknown>): string[] | null {
   if (!Array.isArray(currentValue)) return null;
@@ -87,10 +78,7 @@ export function collectFlatValueActionPaths(currentValue: unknown, ops: Readonly
   return paths;
 }
 
-/**
- * Try the COW flat-array mutation. Returns undefined whenever the shape is not
- * the guarded hot path — callers must then run the full pipeline unchanged.
- */
+/** Try the COW flat-array mutation; undefined whenever the shape is not the guarded hot path (run the full pipeline then). */
 export function tryFastPipelineMutation<TData = unknown>(
   currentValue: TData,
   ops: ReadonlyArray<unknown>,
@@ -109,9 +97,8 @@ export function tryFastPipelineMutation<TData = unknown>(
   let matched = 0;
   let mutations = 0;
 
-  // Whole-loop codegen for static-value actions (no function values, no merge_update, no sugar).
-  // `next` is a shallow copy of the input array; compiled mutation replaces only matched
-  // slots with clones, preserving the COW identity contract (unmatched items alias the input).
+  // Whole-loop codegen for static-value actions (no function values, deep merge or sugar): `next` is a
+  // shallow copy of the input and only matched slots are replaced with clones (COW identity contract).
   const compiledMutation = patches.length > 0 ? null : compileFlatMutation<unknown>(intent.criteria, intent.actions);
   if (compiledMutation) {
     const next = items.slice();

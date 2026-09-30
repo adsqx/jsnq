@@ -1,7 +1,4 @@
-/**
- * Insert preflight (`can*`) and apply (`insert*`) pairs for inside/before/after positions.
- * The pairs stay separate on purpose: their edge behavior differs subtly (see comments).
- */
+/** Insert preflight (`can*`) and apply (`insert*`) pairs for inside/before/after; kept separate on purpose: their edge behavior differs subtly. */
 import type { InsertPosition } from './types/actions';
 import type { SearchOptions, SearchResultNode } from './types/model';
 import { isRecordObject, spliceClamped } from './guards';
@@ -15,10 +12,7 @@ const KEY_REQUIRED_RELATIVE = "insert_to/moveTo/copyTo: explicit string 'key' is
 const relativeOffset = (position: InsertPosition): 0 | 1 => (position === 'before' ? 0 : 1);
 
 /** The object that receives a keyed insert: the target itself (inside) or its parent (before/after). */
-export function objectContainerFor(
-  target: SearchResultNode,
-  position: InsertPosition
-): Record<string, unknown> | undefined {
+export function objectContainerFor(target: SearchResultNode, position: InsertPosition): Record<string, unknown> | undefined {
   const container = position === 'inside' ? target.data : target.parent;
   return isRecordObject(container) ? container : undefined;
 }
@@ -29,12 +23,7 @@ function insertIntoArray(arr: unknown[], key: string | number | undefined, data:
   else arr.push(data);
 }
 
-export function assertCanInsertIntoTargetPath(
-  root: unknown,
-  positionPath: string,
-  mode: InsertPosition = 'inside',
-  key?: string | number
-): ResolvedTargetPath {
+export function assertCanInsertIntoTargetPath(root: unknown, positionPath: string, mode: InsertPosition = 'inside', key?: string | number): ResolvedTargetPath {
   const resolved = resolveTargetPath(root, positionPath, false);
   const { targetNode, targetParent } = resolved;
 
@@ -52,13 +41,7 @@ export function assertCanInsertIntoTargetPath(
 }
 
 /** Preflight overwrite policy and relative-target availability before source removal. */
-export function canInsertIntoResolvedTarget(
-  resolved: ResolvedTargetPath,
-  data: unknown,
-  mode: InsertPosition = 'inside',
-  key?: string | number,
-  options?: SearchOptions
-): boolean {
+export function canInsertIntoResolvedTarget(resolved: ResolvedTargetPath, data: unknown, mode: InsertPosition = 'inside', key?: string | number, options?: SearchOptions): boolean {
   const { targetNode, targetParent, targetKey } = resolved;
   if (mode === 'inside') {
     if (Array.isArray(targetNode)) return true;
@@ -73,9 +56,7 @@ export function canInsertIntoResolvedTarget(
     : false;
 }
 
-/**
- * Insert data relative to a reference node (inside/before/after).
- */
+/** Insert data relative to a reference node (inside/before/after). */
 export function insertRelative(ref: SearchResultNode, data: unknown, position: InsertPosition = 'inside', key?: string | number, options?: SearchOptions, stats?: { warnings: string[] }): boolean {
   if (!ref) return false;
   if (position === 'inside') {
@@ -133,19 +114,11 @@ export function canInsertRelative(ref: SearchResultNode, data: unknown, position
   return isRecordObject(parent) && typeof key === 'string' && key.length > 0 && canAssignKeyOrPath(parent, key, options);
 }
 
-/**
- * Insert the given data into a target path on the root, supporting inside/before/after semantics.
- * Mirrors the logic previously embedded in pipeline for move/copy/insert_to.
- */
+/** Insert `data` into a target path on the root (inside/before/after); the pipeline's move/copy/insert_to insertion. */
 export function insertIntoTargetPath(
-  root: unknown,
-  positionPath: string,
-  data: unknown,
-  mode: InsertPosition = 'inside',
+  root: unknown, positionPath: string, data: unknown, mode: InsertPosition = 'inside',
   resolver: (root: unknown, path: string) => ResolvedTargetPath,
-  key?: string | number,
-  options?: SearchOptions,
-  stats?: { warnings: string[] }
+  key?: string | number, options?: SearchOptions, stats?: { warnings: string[] }
 ): void {
   const { targetNode, targetParent, targetKey } = resolver(root, positionPath);
   const pos: InsertPosition = mode ?? 'inside';
