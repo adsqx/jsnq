@@ -77,32 +77,44 @@ function buildFactory(
     if (!isCodegenAction(a)) return null;
     const spec = ACTION_CODEGEN[a.type];
     const key = JSON.stringify(a.key);
-    operationPushes.push(`if (opts.trackOperations !== false) stats.operations.push('${a.type} ' + ${key});`);
-    statIncrements.push(`stats.${spec.stat}++;`);
+    operationPushes.push(`if (track) operations.push('${a.type} ' + ${key});`);
+    statIncrements.push(`stats.${spec.stat} += matched;`);
     actionLines.push(
-      `if (opts.strictPathsWarn && !Object.prototype.hasOwnProperty.call(target, ${key})) stats.warnings.push("${a.type}: path '" + ${key} + "' did not exist${spec.warnMsg}");`,
+      `if (warnPaths && !Object.prototype.hasOwnProperty.call(target, ${key})) warnings.push("${a.type}: path '" + ${key} + "' did not exist${spec.warnMsg}");`,
       spec.emit(key, `vals[${criteria.length + i}]`, i)
     );
   }
 
+  // Flags, arrays and stat counters are hoisted out of the loop. Counters are flushed once in
+  // `finally` (matched is bumped where the per-item stat++ used to run), so `stats` is identical
+  // after the call even when the predicate, clone or an action throws mid-loop.
   const source = [
     `var results = [];`,
     `var needPaths = opts.needPaths;`,
     `var collectResults = opts.collectResults !== false;`,
-    `var immutable = opts.immutable;`,
     `var dryRun = opts.dryRun;`,
-    `for (var i = 0; i < items.length; i++) {`,
-    `  var it = items[i];`,
-    `  if (it === null || typeof it !== 'object') continue;`,
-    `  if (!(${predicate})) continue;`,
-    `  stats.resultsFound++;`,
+    `var cow = opts.immutable && !dryRun;`,
+    `var track = opts.trackOperations !== false;`,
+    `var warnPaths = opts.strictPathsWarn;`,
+    `var operations = stats.operations;`,
+    `var warnings = stats.warnings;`,
+    `var matched = 0;`,
+    `try {`,
+    `  for (var i = 0; i < items.length; i++) {`,
+    `    var it = items[i];`,
+    `    if (it === null || typeof it !== 'object') continue;`,
+    `    if (!(${predicate})) continue;`,
+    `    matched++;`,
+    ...operationPushes.map((l) => `    ${l}`),
+    `    var target = cow ? opts.clone(it) : it;`,
+    ...actionLines.map((l) => `    ${l}`),
+    `    if (cow) items[i] = target;`,
+    `    if (collectResults && needPaths) results.push({ data: target, path: [String(i)], depth: 1, parent: items, parentKey: i });`,
+    `    else if (collectResults) results.push({ data: target, depth: 1 });`,
+    `  }`,
+    `} finally {`,
+    `  stats.resultsFound += matched;`,
     ...statIncrements.map((l) => `  ${l}`),
-    ...operationPushes.map((l) => `  ${l}`),
-    `  var target = immutable && !dryRun ? opts.clone(it) : it;`,
-    ...actionLines.map((l) => `  ${l}`),
-    `  if (immutable && !dryRun) items[i] = target;`,
-    `  if (collectResults && needPaths) results.push({ data: target, path: [String(i)], depth: 1, parent: items, parentKey: i });`,
-    `  else if (collectResults) results.push({ data: target, depth: 1 });`,
     `}`,
     `return results;`,
   ].join('\n');

@@ -17,17 +17,17 @@ export interface ActionCodegen {
 export type CodegenType = Extract<ActionType, 'update' | 'replace' | 'delete_key' | 'merge_update'>;
 export type CodegenAction = ActionMap[CodegenType];
 
-const assign = (key: string, val: string): string => `if (!opts.dryRun) target[${key}] = ${val};`;
+const assign = (key: string, val: string): string => `if (!dryRun) target[${key}] = ${val};`;
 
 export const ACTION_CODEGEN: { readonly [K in CodegenType]: ActionCodegen } = {
   update: { stat: 'updates', warnMsg: '; created implicitly', emit: assign },
   replace: { stat: 'replaces', warnMsg: '; created implicitly', emit: assign },
-  delete_key: { stat: 'deletedKeys', warnMsg: '', emit: (key) => `if (!opts.dryRun) delete target[${key}];` },
+  delete_key: { stat: 'deletedKeys', warnMsg: '', emit: (key) => `if (!dryRun) delete target[${key}];` },
   merge_update: {
     stat: 'mergeUpdates',
     warnMsg: '; created implicitly',
     emit: (key, patch, i) =>
-      `if (!opts.dryRun) { var current${i} = target[${key}]; target[${key}] = (current${i} !== null && typeof current${i} === 'object' && ${patch} !== null && typeof ${patch} === 'object') ? Object.assign({}, current${i}, ${patch}) : ${patch}; }`,
+      `if (!dryRun) { var current${i} = target[${key}]; target[${key}] = (current${i} !== null && typeof current${i} === 'object' && ${patch} !== null && typeof ${patch} === 'object') ? Object.assign({}, current${i}, ${patch}) : ${patch}; }`,
   },
 };
 
