@@ -2,6 +2,15 @@ import JsnqPipeline from './pipeline';
 import { JsonOperator, JsonLike } from './types';
 import { cloneJsonData } from './data-engine';
 
+type Readable = Pick<JsnqPipeline, 'all' | 'count'> & { first(): unknown };
+
+/** How each `execute(mode)` reads a pipeline; unknown modes fall back to `all`. */
+const RUN = {
+  all: (p: Readable): unknown => p.all(),
+  first: (p: Readable): unknown => p.first(),
+  count: (p: Readable): unknown => p.count(),
+};
+
 /**
  * Wrapper for JsnqPipeline that provides auto-immutability for zoneless change detection.
  *
@@ -33,15 +42,7 @@ export class PipelineWrapper<T extends JsonLike = JsonLike> {
    * Execute pipeline with optional mode
    */
   execute(mode: 'all' | 'first' | 'count' = 'all'): unknown {
-    switch (mode) {
-      case 'first':
-        return this._pipeline.first();
-      case 'count':
-        return this._pipeline.count();
-      case 'all':
-      default:
-        return this._pipeline.all();
-    }
+    return (Object.hasOwn(RUN, mode) ? RUN[mode] : RUN.all)(this._pipeline);
   }
 
   /**
