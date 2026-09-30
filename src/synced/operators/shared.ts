@@ -1,4 +1,5 @@
 import { Action, ActionType, ComparisonOperator, InsertPosition, JsonOperator, PipelineLike } from '../core/types';
+import { isObject } from '../internal/guards';
 
 export type ModeKeyOptions<TKey extends string | number = string | number> = {
   mode?: InsertPosition;
@@ -9,11 +10,8 @@ export const normalizeModeKeyOptions = <TKey extends string | number>(
   modeOrOpts: InsertPosition | ModeKeyOptions<TKey> | undefined,
   fallbackKey?: TKey
 ): ModeKeyOptions<TKey> => {
-  if (typeof modeOrOpts === 'object' && modeOrOpts !== null) {
-    return modeOrOpts as ModeKeyOptions<TKey>;
-  }
-  const mode = modeOrOpts as InsertPosition | undefined;
-  return { mode, key: fallbackKey };
+  if (isObject(modeOrOpts)) return modeOrOpts;
+  return { mode: modeOrOpts, key: fallbackKey };
 };
 
 export const appendAction = <T extends PipelineLike, TAction extends Action>(
@@ -54,5 +52,5 @@ export const positionOperator = (type: 'move' | 'copy') =>
     key?: string | number
   ): JsonOperator<T> => {
     const opts = normalizeModeKeyOptions(modeOrOpts, key);
-    return mutationAction({ type, position, mode: opts.mode ?? 'inside', key: opts.key } as Action);
+    return mutationAction({ type, position, mode: opts.mode ?? 'inside', key: opts.key });
   };

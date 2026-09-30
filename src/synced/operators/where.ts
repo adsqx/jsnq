@@ -8,13 +8,13 @@ function where<T extends PipelineLike<JsonLike>, P extends Path<T['data']> | Bra
 function where<T extends PipelineLike<JsonLike>, P extends Path<T['data']> | BracketPath<T['data']>>(key: P, operator: 'isArray' | 'isObject', value: boolean): JsonOperator<T>;
 function where<T extends PipelineLike<JsonLike>>(key: string, operator: CompiledCriterion['operator'], value: unknown): JsonOperator<T>;
 function where<T extends PipelineLike<JsonLike>>(key: string, operator: CompiledCriterion['operator'], value: unknown): JsonOperator<T> {
-  const fn = (pipeline: T) => {
+  const fn: JsonOperator<T> = (pipeline: T) => {
     const compiled = compileCriterion(key, operator, value);
     return pipeline.with({ criteria: [...pipeline.criteria, compiled] }) as T;
   };
 
   // Add cache metadata for pipeline caching
-  (fn as any).__cacheKey = JSON.stringify({ op: 'where', key, operator, value });
+  fn.__cacheKey = JSON.stringify({ op: 'where', key, operator, value });
 
   return fn;
 }
