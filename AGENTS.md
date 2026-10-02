@@ -46,10 +46,10 @@ canonical source** (see `src/synced/SYNC_HEADER.txt`), so engine changes are mad
 ## Working rules
 
 - **Every file in `core/` and `operators/` is a public entry point.** `package.json` `exports`
-  use the wildcards `./core/*` and `./operators/*`, so `@adsq/jsnq/core/pipeline` and
-  `@adsq/jsnq/operators/where` are import paths that consumers rely on. Never rename, move or
-  delete those files, and keep each operator's default export. A new operator is a new file in
-  `operators/`, an export line in `src/synced/index.ts`, and docs.
+  lists each of them explicitly (`./core/pipeline`, `./operators/where`, …; no wildcards), and
+  consumers import those paths. Never rename, move or delete those files, and keep each operator's
+  default export. A new operator is a new file in `operators/`, a new `exports` entry, an export
+  line in `src/synced/index.ts`, and docs.
 - **Zero runtime dependencies.** Do not add any. Do not use Node-only APIs in `src/`: it must run
   in browsers, Node and Bun.
 - **New code goes in `internal/`, never as a new file in `core/` or `operators/`** — anything

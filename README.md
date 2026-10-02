@@ -107,13 +107,31 @@ active.count(); // => 1
 active.all().map((node) => node.path); // => [['0']]
 ```
 
+Prefer plain functions and one verb per structural change? `where` also takes a predicate, and
+`move` / `copy` cover the whole move/copy family with a single, explicit target:
+
+```ts
+import { JsnqPipeline, where, move } from '@adsq/jsnq';
+
+type Task = { id: number; title: string; done: boolean };
+const board: { todo: Task[]; done: Task[] } = {
+  todo: [{ id: 1, title: 'Write docs', done: true }, { id: 2, title: 'Ship', done: false }],
+  done: [],
+};
+
+new JsnqPipeline(board).pipe(where((t: Task) => t.done === true), move('done')).all();
+board.todo.map((t) => t.id); // => [2]
+board.done.map((t) => t.id); // => [1]
+```
+
 ## Concepts
 
 ### Pipeline
 
 `new JsnqPipeline(data, options?).pipe(...operators)` builds a description; a terminal call runs it.
 
-- `where(path, operator, value)` adds a **criterion**. All criteria are AND-combined.
+- `where(path, operator, value)` adds a **criterion**; so do `where(node => boolean)` and
+  `where(path, value => boolean)`. All criteria are AND-combined.
 - Every other operator adds an **action** applied to each match, in the order written.
 - **A match is any node in the tree** that satisfies the criteria: the root, array elements, nested
   objects, down to `maxDepth` (default `10`). `where('id', '===', 2)` finds every object with `id` 2,
@@ -125,11 +143,12 @@ active.all().map((node) => node.path); // => [['0']]
 
 ### Operators
 
-Seventeen small operators, each its own module: `where`; `update`, `replace`, `mergeUpdate`,
-`deleteKey`; `deleteElement`, `insert`; `insertTo`, `moveTo`, `copyTo`; `moveToMatches`,
-`copyToMatches`, `moveToAll`, `copyToAll`, `moveToMatchesOverwrite`, and the aliases
-`moveToFirstTarget` / `copyToFirstTarget`. See the [table below](#operator-reference) and
-[docs/operators.md](./docs/operators.md).
+Small operators, each its own module: `where`; `update`, `replace`, `mergeUpdate`, `deleteKey`;
+`deleteElement`, `insert`; `insertTo`; and the structural `move` / `copy`. `move` and `copy` are the
+recommended entry points for structural changes: the older `moveTo`, `copyTo`, `moveToMatches`,
+`copyToMatches`, `moveToAll`, `copyToAll`, `moveToMatchesOverwrite` and the aliases
+`moveToFirstTarget` / `copyToFirstTarget` remain, and each is exactly one `move`/`copy` form (see
+the [table below](#operator-reference) and [docs/operators.md](./docs/operators.md)).
 
 ### Mutation modes
 
@@ -163,6 +182,7 @@ Full rules, result nodes and pitfalls: [docs/paths.md](./docs/paths.md).
 | Operator | Signature | One-line semantics |
 | --- | --- | --- |
 | `where` | `(path, operator, value)` | Keep nodes whose value at `path` satisfies `operator`; AND-combined. |
+| `where` | `(node => boolean)`, `(path, value => boolean)` | Same, with a plain predicate (annotate the parameter to type it). |
 | `update` | `(path, valueOrFn)` | Write `path` on each match, creating missing containers; `fn(current, node)`. |
 | `replace` | `(path, valueOrFn)` | Same write as `update`; counted separately in stats. |
 | `mergeUpdate` | `(path, patch, { deep? })` | Shallow or deep merge of an object into the value at `path`. |
@@ -170,6 +190,8 @@ Full rules, result nodes and pitfalls: [docs/paths.md](./docs/paths.md).
 | `deleteElement` | `()` | Remove each matched node from its parent. |
 | `insert` | `(data, position = 'inside', keyOrOpts?)` | Insert `data` inside, before or after each match. |
 | `insertTo` | `(path, data, modeOrOpts = 'inside', key?)` | Insert at a path; needs no match; runs once. |
+| `move` | `(to, { mode?, key?, overwrite? })` | Move each match. `to`: a path, or `{ where: [key, op, value], into?: 'first' \| 'all' }`. |
+| `copy` | `(to, { mode?, key? })` | Deep-copy each match; same targets as `move`. |
 | `moveTo` | `(path, modeOrOpts = 'inside', key?)` | Move each match to a path. |
 | `copyTo` | `(path, modeOrOpts = 'inside', key?)` | Deep-copy each match to a path. |
 | `moveToMatches` | `(targetKey, targetOperator, targetValue, mode = 'inside', key?)` | Move all sources into the first selected target. |
@@ -255,6 +277,9 @@ What the types do, exactly:
 | `@adsq/jsnq` | Everything: `JsnqPipeline`, `PipelineWrapper`, all operators, data engine, types, host helpers. |
 | `@adsq/jsnq/operators/<name>` | One operator (default export), e.g. `@adsq/jsnq/operators/where`. |
 | `@adsq/jsnq/core/<module>` | One engine module, e.g. `core/pipeline` (default export `JsnqPipeline`), `core/types`, `core/match`. |
+
+Every entry is listed explicitly in `package.json` `exports` (no wildcards), so only these modules
+are importable; the implementation under `internal/` is not.
 | `@adsq/jsnq/data-engine` | The path layer only. |
 
 `import` resolves to ESM in `dist/`, `require` to CommonJS in `dist-cjs/`; `sideEffects` is `false`.

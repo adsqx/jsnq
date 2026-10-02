@@ -77,7 +77,16 @@ Use `dryRun()` to inspect the effect without applying it.
 <!-- snippet: skip -->
 ```ts
 where(path: string, operator: ComparisonOperator, value: unknown)
+where(predicate: (node) => boolean)
+where(path: string, predicate: (value) => boolean)
 ```
+
+The predicate forms are plain functions instead of an operator string. `where(fn)` receives each
+node; `where(path, fn)` receives the value at `path` on each node that has it (the same presence
+rule as the string form). Criteria run against every node of the tree, so a relative path is not a
+root path: annotate the parameter to type it, e.g. `where('score', (s: number) => s > 15)` or
+`where((u: User) => u.active)`. A predicate cannot be pre-screened against nested containers, so on
+a flat array pass `{ maxDepth: 1 }` to keep the flat fast scan; results are identical either way.
 
 Built-in comparison operators:
 
@@ -310,6 +319,41 @@ board.done.map((c) => c.id); // => [1]
 new JsnqPipeline(board).pipe(where('id', '===', 2), copyTo('archive', 'inside', 'card-2')).all();
 board.archive; // => { 'card-2': { id: 2 } }
 board.todo.map((c) => c.id); // => [2]
+```
+
+## `move` and `copy`: one entry point per verb
+
+<!-- snippet: skip -->
+```ts
+move(to: string | { where: [key, operator, value]; into?: 'first' | 'all' }, opts?: { mode?, key?, overwrite? })
+copy(to: string | { where: [key, operator, value]; into?: 'first' | 'all' }, opts?: { mode?, key? })
+```
+
+Each form is exactly one of the operators below; they stay available and behave identically.
+
+| Call | Equivalent |
+| --- | --- |
+| `move('done')` | `moveTo('done')` |
+| `move('list', { mode: 'before' })` | `moveTo('list', 'before')` |
+| `move({ where: ['type', '===', 'basket'] })` | `moveToMatches('type', '===', 'basket')` |
+| `move({ where: [...], into: 'all' })` | `moveToAll(...)` |
+| `move({ where: [...] }, { overwrite: 'current' })` | `moveToMatchesOverwrite(..., 'current')` |
+| `copy('archive')` | `copyTo('archive')` |
+| `copy({ where: [...] })` | `copyToMatches(...)` |
+| `copy({ where: [...], into: 'all' })` | `copyToAll(...)` |
+
+`overwrite` is only valid for `move` with a `where` target and without `into: 'all'`; other
+combinations throw when the operator is created.
+
+```ts
+import { JsnqPipeline, where, copy } from '@adsq/jsnq';
+
+const shop = {
+  items: [{ id: 1, type: 'item' }],
+  baskets: [{ type: 'basket', items: [] as unknown[] }, { type: 'basket', items: [] as unknown[] }],
+};
+new JsnqPipeline(shop).pipe(where('type', '===', 'item'), copy({ where: ['type', '===', 'basket'], into: 'all' }, { key: 'items' })).all();
+shop.baskets.map((b) => b.items.length); // => [1, 1]
 ```
 
 ## Match-targeted structural operators

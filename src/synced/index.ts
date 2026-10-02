@@ -31,3 +31,7 @@ export { default as moveToAll } from './operators/moveToAll';
 export { default as copyToAll } from './operators/copyToAll';
 export { default as moveToFirstTarget } from './operators/moveToFirstTarget';
 export { default as copyToFirstTarget } from './operators/copyToFirstTarget';
+export { default as move } from './operators/move';
+export { default as copy } from './operators/copy';
+export type { RelocateTarget, RelocateOptions } from './operators/move';
+export type { WherePredicate } from './operators/where';

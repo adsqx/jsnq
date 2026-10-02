@@ -56,13 +56,15 @@ users[0].score; // => 1
 | Operator | Signature | Notes |
 | --- | --- | --- |
 | `where` | `(path, op, value)` | Ops: `== === != !== > >= < <= includes !includes startsWith endsWith regex isArray isObject` or a `registerOperator` name. |
+| `where` | `(node => bool)` / `(path, value => bool)` | Plain predicate; annotate the parameter to type it. Add `{ maxDepth: 1 }` on flat arrays to keep the fast scan. |
 | `update` / `replace` | `(path, valueOrFn)` | `fn(current, node)`. Creates missing containers. |
 | `mergeUpdate` | `(path, patch, { deep? })` | Shallow by default. Arrays in a deep merge follow `arrayMergeStrategy`. |
 | `deleteKey` | `(path)` | Deletes the key; splices an array index. |
 | `deleteElement` | `()` | Removes each match from its parent. |
 | `insert` | `(data, 'inside' \| 'before' \| 'after', key?)` | Relative to each match. |
 | `insertTo` | `(path, data, mode?, key?)` | Needs no match; runs once. |
-| `moveTo` / `copyTo` | `(path, mode?, key?)` | Move or deep-copy each match to a path. |
+| `move` / `copy` | `(to, { mode?, key?, overwrite? })` | **Preferred.** `to` = path, or `{ where: [key, op, value], into?: 'first' \| 'all' }`; `overwrite` (move only) sets `target[overwrite]`. |
+| `moveTo` / `copyTo` | `(path, mode?, key?)` | Move or deep-copy each match to a path (= `move(path)`). |
 | `moveToMatches` / `copyToMatches` | `(targetKey, op, value, mode?, key?)` | All sources into the FIRST selected target. |
 | `moveToAll` / `copyToAll` | same | Sources into EVERY selected target. |
 | `moveToMatchesOverwrite` | `(targetKey, op, value, overwriteKey)` | Sets `target[overwriteKey]`. |
