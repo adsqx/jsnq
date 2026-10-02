@@ -18,14 +18,23 @@ Reference pages are in [`docs/`](./docs); runnable examples are in [`examples/`]
 ## Repository layout
 
 - `src/synced/index.ts` — the root entry (`@adsq/jsnq`).
-- `src/synced/core/` — engine modules: `pipeline.ts` (`JsnqPipeline`), `ops.ts` (structural
-  insert/move/copy), `actions.ts` (value actions), `match.ts` and `compiled-predicate.ts`
-  (criteria), `flat-array-fast-path.ts`, `pipeline-fastpath.ts` and `compiled-mutation.ts`
-  (fast paths), `data-engine.ts` (path plans, read/write/delete, cloning), `utils.ts`,
-  `operators-registry.ts`, `pipeline-wrapper.ts`, `types.ts`.
+- `src/synced/core/` — the public engine entries. `pipeline.ts` (`JsnqPipeline`) and
+  `flat-array-fast-path.ts` hold real code; `ops.ts`, `actions.ts`, `data-engine.ts`,
+  `utils.ts`, `pipeline-fastpath.ts`, `compiled-*.ts`, `types.ts` and the rest are thin,
+  explicitly named re-exports of `internal/`.
+- `src/synced/internal/` — the implementation, not an entry point:
+  - `path/` — path parsing and the plan cache (`plan.ts`), read/write/delete and the cursor
+    (`ops.ts`), mutation results (`result.ts`), cloning (`clone.ts`).
+  - `pipeline/` — `execute()` split into criteria planning and the run loop (`run.ts`), search
+    (`search.ts`) and the value/node/global action appliers (`actions.ts`).
+  - `action-registry.ts` — one typed table per action type (phase, metadata, stat, applier);
+    every action-type dispatch goes through it.
+  - `fastpath/` — copy-on-write array mutation, structural shortcuts and shared eligibility guards.
+  - `codegen/` — the compiled predicate/mutation factories and the built-in operator table.
+  - `traverse.ts`, `deep-search.ts`, `tree-utils.ts`, `assign-policy.ts`, `insert-ops.ts`,
+    `move-ops.ts`, `fanout.ts`, `guards.ts`, `run-options.ts`, `types/`.
 - `src/synced/operators/` — one file per operator; `shared.ts` holds the factories they use.
 - `src/data-engine.ts` — re-export that becomes the `@adsq/jsnq/data-engine` entry.
-- `src/utils/path-safety.ts` — the forbidden-segment set, imported by `core/ops.ts`.
 - `test/` — suites and the benchmark, all run with `bun`. `test/types-path-contract.ts` is a
   compile-time contract for `Path` / `PathValue`.
 - `examples/`, `docs/` — documentation. Not published, not part of the `tsc` build.
@@ -43,9 +52,14 @@ canonical source** (see `src/synced/SYNC_HEADER.txt`), so engine changes are mad
   `operators/`, an export line in `src/synced/index.ts`, and docs.
 - **Zero runtime dependencies.** Do not add any. Do not use Node-only APIs in `src/`: it must run
   in browsers, Node and Bun.
-- **All path parsing goes through `core/data-engine.ts`.** It rejects `__proto__`, `prototype` and
-  `constructor` segments. Do not add a second parser or bypass the plan compiler, and keep
-  `test/jsnq-prototype-guard.test.ts` green.
+- **New code goes in `internal/`, never as a new file in `core/` or `operators/`** — anything
+  there becomes a public import path. Public files stay explicit named re-exports so their
+  ESM and CJS export names do not drift.
+- **All path parsing goes through `internal/path/plan.ts`** (re-exported by
+  `core/data-engine.ts`). It rejects `__proto__`, `prototype` and `constructor` segments. Do not
+  add a second parser or bypass the plan compiler, and keep `test/jsnq-prototype-guard.test.ts`
+  green. Data-engine internals must not import the pipeline, ops or operators: the stores
+  deep-import `core/data-engine` to keep the rest out of their initial bundle.
 - **Fast paths must equal the general traversal.** `flat-array-fast-path`, `pipeline-fastpath`
   and the `compiled-*` modules may only handle shapes they can prove equivalent, and must return
   `null` / `undefined` otherwise. `test/jsnq-fastpath-parity.test.ts` is the gate.
