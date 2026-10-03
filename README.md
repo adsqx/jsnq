@@ -419,8 +419,9 @@ concrete field types. Interfaces have no implicit index signature and `unknown` 
 `.default` or the named exports of the root entry.
 
 **Does it work under a strict CSP?** Yes. On flat arrays, criteria with built-in operators
-(nested paths such as `meta.score` included) and simple `update` / `replace` / `mergeUpdate` /
-`deleteKey` actions are compiled once per shape with `new Function` and cached. When that is
+(nested paths such as `meta.score` included) and `update` / `replace` / shallow `mergeUpdate` /
+`deleteKey` actions with plain values (nested keys such as `stats.views.total` included, missing
+containers created as the interpreter does) are compiled once per shape with `new Function` and cached. When that is
 blocked (probed once) the engine falls back to its interpreter with identical results, only slower;
 `test/jsnq-codegen-differential.test.ts` checks the two agree.
 

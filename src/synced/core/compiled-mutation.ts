@@ -1,16 +1,17 @@
 import type { Action, CompiledCriterion, PipelineStats, SearchResultNode } from './types';
 import {
-  ACTION_CODEGEN, actionValue, canCompile, criteriaCheckSource, criteriaCodegenable, criteriaSignature, isCodegenAction, isSingleSegmentKey,
+  actionSource, actionValue, canCompile, criteriaCheckSource, criteriaCodegenable, criteriaSignature, isCodegenAction, isPathKey,
   makeFactoryCache, sigPart,
 } from '../internal/codegen/common';
+import { createJsonPathPlan, hasJsonPath, type JsonPathPlan } from './data-engine';
 import { ACTION_STAT } from '../internal/run-options';
 
 /**
- * Optional codegen fast path for flat-array mutations: compiles single-segment, non-deep,
- * built-in-operator criteria + value actions into a single `for` loop over the array (no per-item
- * operator indirection, prepared-action wrappers or plan lookups). Falls back to the interpreter
- * for deep `@` criteria, multi-segment paths, regex/custom operators, function values, deep
- * merge_update and structural actions. Mirrors `criteriaMatch` + `applyValueAction` for the subset.
+ * Optional codegen fast path for flat-array mutations: compiles non-deep, built-in-operator criteria
+ * + value actions (nested keys included) into a single `for` loop over the array (no per-item operator
+ * indirection, prepared-action wrappers or plan lookups). Falls back to the interpreter for deep `@`
+ * criteria, regex/custom operators, function values, deep merge_update and structural actions.
+ * Mirrors `criteriaMatch` + `applyValueAction` for the subset.
  */
 
 export type CompiledFlatMutationOptions = {
@@ -34,18 +35,19 @@ type FlatMutationFactory = <T>(
   items: T[],
   vals: unknown[],
   opts: CompiledFlatMutationOptions,
-  stats: PipelineStats
+  stats: PipelineStats,
+  hasPath: (root: unknown, plan: JsonPathPlan) => boolean,
 ) => SearchResultNode<T, unknown, string | number>[];
 
 const factories = makeFactoryCache<FlatMutationFactory>(2000);
 export function setCompiledMutationCacheLimit(limit: number): void { factories.setLimit(limit); }
 export function clearCompiledMutationCache(): void { factories.clear(); }
 
-/** Single-segment key, and (update/replace) a non-function value / (merge_update) a shallow merge. */
+/** A path key, and (update/replace) a non-function value / (merge_update) a shallow merge. */
 function actionIsCodegenable(a: Action): boolean {
   if (!isCodegenAction(a)) return false;
   if (a.type === 'merge_update' ? a.deep === true : a.type !== 'delete_key' && typeof a.value === 'function') return false;
-  return isSingleSegmentKey(a.key);
+  return isPathKey(a.key);
 }
 
 export function isFlatMutationCodegenable(criteria: ReadonlyArray<CompiledCriterion>, actions: ReadonlyArray<Action>): boolean {
@@ -60,19 +62,26 @@ function buildFactory(criteria: ReadonlyArray<CompiledCriterion>, actions: Reado
   for (let i = 0; i < actions.length; i++) {
     const a = actions[i];
     if (!isCodegenAction(a)) return null;
-    const spec = ACTION_CODEGEN[a.type];
-    const key = JSON.stringify(a.key);
-    operationPushes.push(`if (track) operations.push('${a.type} ' + ${key});`);
+    const plan = createJsonPathPlan(a.key);
+    const path = JSON.stringify(plan.path);
+    // The interpreter's checks: an own key for a single segment, hasJsonPath for a nested one.
+    const exists = plan.segments.length === 1
+      ? `Object.prototype.hasOwnProperty.call(target, ${JSON.stringify(plan.key)})`
+      : `hasPath(target, vals[${criteria.length + actions.length + i}])`;
+    const tail = a.type === 'delete_key' ? '' : '; created implicitly';
+    operationPushes.push(`if (track) operations.push(${JSON.stringify(`${a.type} ${plan.path}`)});`);
     statIncrements.push(`stats.${ACTION_STAT[a.type]} += matched;`);
     actionLines.push(
-      `if (warnPaths && !Object.prototype.hasOwnProperty.call(target, ${key})) warnings.push("${a.type}: path '" + ${key} + "' did not exist${spec.warnMsg}");`,
-      spec.emit(key, `vals[${criteria.length + i}]`, i)
+      `if (warnPaths && !${exists}) warnings.push("${a.type}: path '" + ${path} + "' did not exist${tail}");`,
+      actionSource(a, plan, `vals[${criteria.length + i}]`, i),
     );
   }
 
   // Flags, arrays and counters are hoisted out of the loop; counters are flushed once in `finally`,
   // so `stats` is identical to the per-item interpreter even when a predicate, clone or action throws mid-loop.
   const source = [
+    // Strict like the interpreter's ES modules: a write to a frozen object or a non-configurable delete throws in both.
+    `'use strict';`,
     `var results = [];`,
     `var needPaths = opts.needPaths;`,
     `var collectResults = opts.collectResults !== false;`,
@@ -104,7 +113,7 @@ function buildFactory(criteria: ReadonlyArray<CompiledCriterion>, actions: Reado
   ].join('\n');
 
   try {
-    return new Function('items', 'vals', 'opts', 'stats', source) as FlatMutationFactory;
+    return new Function('items', 'vals', 'opts', 'stats', 'hasPath', source) as FlatMutationFactory;
   } catch {
     return null;
   }
@@ -115,6 +124,10 @@ export function compileFlatMutation<T = unknown>(criteria: ReadonlyArray<Compile
   const sig = criteriaSignature(criteria) + '\x03' + actions.map((a) => sigPart(a.type) + sigPart('key' in a ? a.key : undefined)).join('|');
   const factory = factories.getOrBuild(sig, () => buildFactory(criteria, actions));
   if (!factory) return null;
-  const vals = [...criteria.map((c) => c.value), ...actions.map((a) => (isCodegenAction(a) ? actionValue(a) : undefined))];
-  return (items, opts, stats) => factory<T>(items, vals, opts, stats);
+  const vals = [
+    ...criteria.map((c) => c.value),
+    ...actions.map((a) => (isCodegenAction(a) ? actionValue(a) : undefined)),
+    ...actions.map((a) => ('key' in a && typeof a.key === 'string' ? createJsonPathPlan(a.key) : undefined)),
+  ];
+  return (items, opts, stats) => factory<T>(items, vals, opts, stats, hasJsonPath);
 }

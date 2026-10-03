@@ -2,8 +2,8 @@
 import type { ActionMap, ActionType } from '../types/actions';
 import type { CompiledCriterion } from '../types/model';
 import { getOperatorFn } from '../../core/operators-registry';
-import { createJsonPathPlan } from '../../core/data-engine';
-import { isForbiddenSegment } from '../guards';
+import { createJsonPathPlan, type JsonPathPlan } from '../../core/data-engine';
+import { isForbiddenSegment, isNumericSegment } from '../guards';
 import { builtinOp } from './builtin-ops';
 
 let compileOk: boolean | null = null;
@@ -98,35 +98,66 @@ export function isSingleSegmentKey(key: unknown): key is string {
   return typeof key === 'string' && key.length > 0 && createJsonPathPlan(key).segments.length === 1;
 }
 
-export interface ActionCodegen {
-  /** Tail of the strictPathsWarn message: `<type>: path '<key>' did not exist<warnMsg>`. */
-  warnMsg: string;
-  /** Statement applying the action to `target[key]` (`val` = source ref of the action's value/patch). */
-  emit: (key: string, val: string, i: number) => string;
-}
-
 /** Action types the compiled loop can handle (all others use the interpreter). */
 type CodegenType = Extract<ActionType, 'update' | 'replace' | 'delete_key' | 'merge_update'>;
 export type CodegenAction = ActionMap[CodegenType];
 
-const assign = (key: string, val: string): string => `if (!dryRun) target[${key}] = ${val};`;
-
-export const ACTION_CODEGEN: { readonly [K in CodegenType]: ActionCodegen } = {
-  update: { warnMsg: '; created implicitly', emit: assign },
-  replace: { warnMsg: '; created implicitly', emit: assign },
-  delete_key: { warnMsg: '', emit: (key) => `if (!dryRun) delete target[${key}];` },
-  merge_update: {
-    warnMsg: '; created implicitly',
-    emit: (key, patch, i) =>
-      `if (!dryRun) { var current${i} = target[${key}]; target[${key}] = (current${i} !== null && typeof current${i} === 'object' && ${patch} !== null && typeof ${patch} === 'object') ? Object.assign({}, current${i}, ${patch}) : ${patch}; }`,
-  },
-};
+const CODEGEN_TYPES: ReadonlySet<ActionType> = new Set<CodegenType>(['update', 'replace', 'delete_key', 'merge_update']);
 
 export function isCodegenAction(a: { type: ActionType }): a is CodegenAction {
-  return Object.hasOwn(ACTION_CODEGEN, a.type);
+  return CODEGEN_TYPES.has(a.type);
 }
 
 /** The runtime value bound into the generated loop's `vals` array for this action. */
 export function actionValue(a: CodegenAction): unknown {
   return a.type === 'merge_update' ? a.patch : a.type === 'delete_key' ? undefined : a.value;
+}
+
+const OBJECT_LIKE = (v: string): string => `(${v} !== null && (typeof ${v} === 'object' || typeof ${v} === 'function'))`;
+
+/** `parent[key] = value` with the engine's array rule: a numeric key on an array writes the numeric index. */
+function assignSource(parent: string, key: string, value: string): string {
+  const k = JSON.stringify(key);
+  // '1' and 1 address the same array slot; only non-canonical numerals ('01') need the array test.
+  if (!isNumericSegment(key) || String(Number(key)) === key) return `${parent}[${k}] = ${value};`;
+  return `if (Array.isArray(${parent})) ${parent}[${Number(key)}] = ${value}; else ${parent}[${k}] = ${value};`;
+}
+
+/**
+ * Statements applying a value action at `plan` of `target`, mirroring the interpreter (core/actions +
+ * the data engine): writes walk the parent segments creating (or replacing a wrongly shaped) child as
+ * `[]` before an index segment and `{}` otherwise; deletes stop at a missing parent and splice an
+ * in-range array index. `val` is the source ref of the value/patch, `n` a unique suffix.
+ */
+export function actionSource(a: CodegenAction, plan: JsonPathPlan, val: string, n: number): string {
+  const { parentSegments, nextIsIndex, key } = plan;
+  const t = `t${n}`, c = `c${n}`;
+  const walk = (create: boolean, label: string): string => parentSegments.map((seg, j) => {
+    const fits = `${OBJECT_LIKE(c)}${nextIsIndex[j] ? ` && Array.isArray(${c})` : ''}`;
+    const miss = create ? `{ ${c} = ${nextIsIndex[j] ? '[]' : '{}'}; ${t}[${JSON.stringify(seg)}] = ${c}; }` : `break ${label};`;
+    return ` ${c} = ${t}[${JSON.stringify(seg)}]; if (!(${fits})) ${miss} ${t} = ${c};`;
+  }).join('');
+  const head = `var ${t} = target, ${c};`;
+  if (a.type === 'delete_key') {
+    const k = key!;
+    const remove = isNumericSegment(k)
+      ? `if (Array.isArray(${t})) { if (${Number(k)} < ${t}.length) ${t}.splice(${Number(k)}, 1); } else delete ${t}[${JSON.stringify(k)}];`
+      : `delete ${t}[${JSON.stringify(k)}];`;
+    return `if (!dryRun) d${n}: { ${head}${walk(false, `d${n}`)} ${remove} }`;
+  }
+  let value = val;
+  let prologue = '';
+  if (a.type === 'merge_update') {
+    // Current value read like getJsonBySegments; a shallow merge of two objects, else the patch.
+    const cur = `m${n}`;
+    const read = plan.segments.map((seg, j) => (j === 0 ? ` ${cur} = target[${JSON.stringify(seg)}];` : ` ${cur} = ${cur} == null ? undefined : ${cur}[${JSON.stringify(seg)}];`)).join('');
+    prologue = ` var ${cur};${read} ${cur} = (${cur} !== null && typeof ${cur} === 'object' && ${val} !== null && typeof ${val} === 'object') ? Object.assign({}, ${cur}, ${val}) : ${val};`;
+    value = cur;
+  }
+  return `if (!dryRun) {${prologue} ${head}${walk(true, '')} ${assignSource(t, key!, value)} }`;
+}
+
+/** True when `key` parses to a path with at least one segment (throws for forbidden segments). */
+export function isPathKey(key: unknown): key is string {
+  return typeof key === 'string' && key.length > 0 && createJsonPathPlan(key).segments.length > 0;
 }
