@@ -214,6 +214,7 @@ generational eviction); `clearDotPathCaches()` drops them.
 | `dotPathParent(normalized)` | `'a.b.c'` -> `'a.b'`; `null` for a top-level key (no validation). |
 | `dotPathIndexContainer(path)` | Container above the first index: `'tree.0.fields'` -> `'tree'`; `null` otherwise. |
 | `dotPathAncestors(path)` | `'a.0.b'` -> `['a.0.b', 'a.0', 'a']`; `[]` for an invalid path. |
+| `new GenerationalCache<V>(limit)` | The bounded cache behind these helpers (`get` / `set` returning the value / `clear`), O(1) eviction; holds `limit` to `2 * limit` entries. Both stores use it for their path caches. |
 | `resolveDependencyPath(normalized, { dependencyMode, bumpNumericParent })` | The path a reactive store tracks: the path itself (`'exact'`) or its parent (`'container'`), optionally lifted to the container above the first index. |
 
 ## Safety

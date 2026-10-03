@@ -11,10 +11,11 @@ const FORBIDDEN_DOT_RE = /(?:^|\.)(?:__proto__|prototype|constructor)(?:\.|$)/;
 
 /**
  * Bounded string-keyed cache with generational eviction: lookups check `current` then `previous`
- * (promoting a hit); on overflow `current` becomes `previous`. O(1) per insert, unlike evicting the
- * oldest Map entry through a fresh iterator. Values must never be `undefined`.
+ * (promoting a hit); on overflow `current` becomes `previous`, so it holds between `limit` and
+ * `2 * limit` entries. O(1) per insert, unlike evicting the oldest Map entry through a fresh
+ * iterator (1.6-4x slower once full). Values must never be `undefined`.
  */
-class GenerationalCache<V> {
+export class GenerationalCache<V> {
   private current = new Map<string, V>();
   private previous = new Map<string, V>();
   constructor(private readonly limit: number) {}

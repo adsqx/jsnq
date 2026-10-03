@@ -3,7 +3,7 @@
  * Run: bun test/jsnq-dot-path.test.ts
  */
 import {
-  clearDotPathCaches, dotPathAncestors, dotPathIndexContainer, dotPathParent, isValidDotPath, isValidNormalizedDotPath,
+  GenerationalCache, clearDotPathCaches, dotPathAncestors, dotPathIndexContainer, dotPathParent, isValidDotPath, isValidNormalizedDotPath,
   normalizeDotPath, resolveDependencyPath, splitDotPath,
 } from '../src/synced/core/data-engine';
 
@@ -31,6 +31,17 @@ for (const pass of ['cold', 'cached']) {
 }
 clearDotPathCaches();
 ok(normalizeDotPath('k[1]') === 'k.1' && isValidDotPath('k[1]'), 'caches refill after clear');
+
+{
+  const cache = new GenerationalCache<number>(2);
+  cache.set('a', 1); cache.set('b', 2); cache.set('c', 3); // third insert starts a new generation
+  ok(cache.get('a') === 1 && cache.get('c') === 3, 'generational cache keeps the previous generation');
+  cache.set('d', 4); cache.set('e', 5); cache.set('f', 6);
+  ok(cache.get('b') === undefined && cache.get('f') === 6, 'generational cache drops entries two generations old');
+  ok(cache.set('g', 7) === 7, 'set returns the value');
+  cache.clear();
+  ok(cache.get('f') === undefined, 'clear empties both generations');
+}
 
 if (failures) { console.error(`\n${failures} dot-path check(s) failed`); process.exit(1); }
 console.log('\nAll dot-path checks passed.');
