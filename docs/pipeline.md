@@ -78,8 +78,8 @@ Things worth knowing:
 
 - **Each terminal call executes the actions again.** `all()` then `count()` applies a mutating
   pipeline twice. Call one terminal method, then read `data`.
-- `first()` runs a separate, early-terminated execution. With `immutable`, the mutated result is
-  the value it returns, not `pipeline.data`; use `all()` when you need `data`.
+- `first()` is an early-terminated execution of the same pipeline: like `all()`, it leaves the
+  (possibly cloned) result on `data` and the counters on `getStats()`.
 - With `immutable: true` the clone happens on the first execution even if nothing matches.
 - `all()` nodes are typed `SearchResultNode<TData>`; narrow `node.data` yourself.
 

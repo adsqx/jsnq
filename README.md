@@ -311,7 +311,8 @@ The path layer rejects the three prototype-pollution segments. `__proto__`, `pro
 in `readJsonPath` / `writeJsonPath` / `deleteJsonPath` / `hasJsonPath`, in action keys (`update`,
 `replace`, `mergeUpdate`, `deleteKey`), in `where()` paths and in insert/move/copy positions.
 `getJsonBySegments`, which takes raw segments, returns `undefined` for them. `cloneJsonData` keeps
-an own `__proto__` key from `JSON.parse` as plain data. This is covered by
+an own `__proto__` key from `JSON.parse` as plain data, and a deep `mergeUpdate` skips those keys in
+the patch. This is covered by
 `test/jsnq-prototype-guard.test.ts` and the data-engine suite.
 
 ```ts
@@ -392,8 +393,8 @@ pipeline with no `where()` matches every node including the root. Add a criterio
 pipeline. Call one and read `pipeline.data`; use `dryRun()` to inspect without applying.
 
 **Does it mutate my data?** By default yes, in place. Use `{ immutable: true }` for a private clone,
-or the copy-on-write helpers to keep identity for unchanged rows. `first()` on an immutable pipeline
-returns the mutated value but leaves `pipeline.data` unchanged; use `all()` when you need `data`.
+or the copy-on-write helpers to keep identity for unchanged rows. On an immutable pipeline every
+terminal call, `first()` included, leaves the result on `pipeline.data`.
 
 **How do I update one known path?** `writeJsonPath(obj, 'a.b.c', value)` from
 `@adsq/jsnq/data-engine` (in place), or `where()` on a unique key plus `update`.
@@ -419,7 +420,8 @@ concrete field types. Interfaces have no implicit index signature and `unknown` 
 when that is blocked (checked by making `Function` throw) the engine falls back to its interpreter with identical results, only slower.
 
 **Can I plug in my own comparison?** `registerOperator('isEven', (actual, expected) => ...)`, then
-`where('n', 'isEven', undefined)`. It is global to the process.
+`where('n', 'isEven', undefined)`. It is global to the process. Re-registering a built-in such as
+`'=='` overrides it everywhere, the compiled fast paths included.
 
 ## Compatibility
 
@@ -428,13 +430,7 @@ when that is blocked (checked by making `Function` throw) the engine falls back 
 | Node.js | ESM import and CommonJS `require` verified on Node 22.22. |
 | Bun | Test suite, benchmarks and examples run on Bun 1.3.11. |
 | Browsers / bundlers | Output is ES2022 with no Node-specific APIs (`performance` and `structuredClone` are feature-tested). Use any bundler that honours `exports`. Not browser-tested here. |
-| TypeScript | Declarations verified with `moduleResolution: bundler` on TS 5.0 and 5.9, and `node` (node10) on TS 4.7. See the known issue below. |
-
-**Known typing issue.** Under `moduleResolution: node16` / `nodenext`, six generated declarations
-(`moveToMatches`, `copyToMatches`, `moveToAll`, `copyToAll`, `moveToFirstTarget`,
-`copyToFirstTarget`) and `PipelineWrapper.stats` contain an unresolvable relative import, so with
-`skipLibCheck: true` they silently degrade to `any`. CommonJS TypeScript projects using node16
-resolution also hit TS1479 because the declarations are ESM only. `bundler` resolution is unaffected.
+| TypeScript | Declarations verified from the packed tarball with `moduleResolution: bundler`, `node16`, `nodenext` (ESM and CommonJS consumers, `skipLibCheck: false`) and `node` (node10). CommonJS consumers get their own declarations under the `require` condition. |
 
 ## Used by
 

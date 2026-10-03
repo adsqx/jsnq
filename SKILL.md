@@ -106,8 +106,7 @@ the path is relative to the visited node. Special forms:
 `immutable` deep-clones everything: unmatched rows become new objects too. The copy-on-write
 helpers return a new outer array and new objects only for matched rows, or `undefined` when the
 shape is not eligible (non-array root, deep `@`, structural actions, ...), in which case run a
-normal pipeline. `first()` on an immutable pipeline returns the mutated value but does not update
-`pipeline.data`; use `all()`.
+normal pipeline. `first()` on an immutable pipeline leaves its result on `pipeline.data`, like `all()`.
 
 ## Reading and writing by path (no pipeline)
 
