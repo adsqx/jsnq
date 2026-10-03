@@ -53,15 +53,77 @@ export function nodeSteps(prepared: PreparedAction[] | null): PreparedAction[] |
 }
 
 /** Apply every step to one matched node, in declaration order (value actions log/count themselves; node actions are counted here). */
-export function applyNodeActions(ctx: RunCtx, node: SearchResultNode, prepared: PreparedAction[]): void {
+export function applyNodeActions(ctx: RunCtx, node: SearchResultNode, prepared: PreparedAction[], fresh?: FreshObjects): void {
   for (const p of prepared) {
     if (p.plan !== null) {
-      applyValueAction(node.data, p, ctx.options, ctx.stats);
+      if (fresh !== undefined && mayCreateObjects(p)) applyMarkingFresh(node.data, p, ctx, fresh);
+      else applyValueAction(node.data, p, ctx.options, ctx.stats);
       continue;
     }
     const spec = specOf(p.action);
     if (spec?.phase === 'node' && runNode(spec, ctx, node, p.action)) ctx.stats[ACTION_STAT[p.action.type]]++;
   }
+}
+
+/**
+ * Whether a value action can put a new object into the tree: a path deeper than one key (missing
+ * containers are created), an object or computed value, or a merge.
+ */
+export function mayCreateObjects(p: PreparedAction): boolean {
+  const a = p.action as { type: string; value?: unknown };
+  if (a.type === 'delete_key') return false;
+  if (a.type === 'merge_update' || p.single === null) return true;
+  return typeof a.value === 'object' || typeof a.value === 'function';
+}
+
+/** Objects created by the running walk's own actions; `has` is a plain counter check until the first one. */
+export class FreshObjects {
+  private readonly set = new WeakSet<object>();
+  private count = 0;
+  add(value: unknown): void {
+    if (typeof value === 'object' && value !== null) { this.set.add(value); this.count++; }
+  }
+  has(value: object): boolean {
+    return this.count !== 0 && this.set.has(value);
+  }
+}
+
+const objectsAlong = (root: unknown, segments: readonly string[]): unknown[] => {
+  const out: unknown[] = [];
+  let node = root;
+  for (let i = 0; i < segments.length && typeof node === 'object' && node !== null; i++) {
+    node = (node as Record<string, unknown>)[segments[i]!];
+    out.push(node);
+  }
+  return out;
+};
+
+const childObjects = (value: unknown): unknown[] =>
+  typeof value === 'object' && value !== null ? Object.values(value).filter((v) => typeof v === 'object' && v !== null) : [];
+
+/**
+ * Apply a value action and record, in `fresh`, every object it introduced along its path (created
+ * containers, the written value, new children of a merged value), so the running walk does not
+ * descend into them and re-apply the action to what it just created.
+ */
+function applyMarkingFresh(target: unknown, p: PreparedAction, ctx: RunCtx, fresh: FreshObjects): void {
+  const single = p.single;
+  if (single !== null && p.action.type !== 'merge_update') {
+    // One key: only the written value itself can be new.
+    const holder = target as Record<string, unknown> | null;
+    const old = typeof holder === 'object' && holder !== null ? holder[single] : undefined;
+    applyValueAction(target, p, ctx.options, ctx.stats);
+    const now = typeof holder === 'object' && holder !== null ? holder[single] : undefined;
+    if (now !== old) fresh.add(now);
+    return;
+  }
+  const segments = p.plan!.segments;
+  const before = objectsAlong(target, segments);
+  const mergedBefore = p.action.type === 'merge_update' ? childObjects(before[before.length - 1]) : null;
+  applyValueAction(target, p, ctx.options, ctx.stats);
+  const after = objectsAlong(target, segments);
+  for (let i = 0; i < after.length; i++) if (after[i] !== before[i]) fresh.add(after[i]);
+  if (mergedBefore !== null) for (const child of childObjects(after[after.length - 1])) if (!mergedBefore.includes(child)) fresh.add(child);
 }
 
 /** Match collection without actions or result paths. */
@@ -109,9 +171,11 @@ export function scanMatches(data: unknown, run: SearchRun): SearchResultNode[] {
   const { match } = plan;
   // The arrow (one shared function, unlike per-query predicates) keeps scanJsonMatches' predicate call
   // site monomorphic across queries; passing `match` directly measured slower.
-  const scan = scanJsonMatches(data, { ...traversal, buildMeta: needMeta, returnPaths: needPaths }, (node) => match(node), (node) => {
+  // Actions applied while walking must not reach the objects they create (they would re-apply to them).
+  const fresh = steps && !defer && steps.some(mayCreateObjects) ? new FreshObjects() : undefined;
+  const scan = scanJsonMatches(data, { ...traversal, buildMeta: needMeta, returnPaths: needPaths, skip: fresh }, (node) => match(node), (node) => {
     ctx.stats.resultsFound++;
-    if (steps && !defer) applyNodeActions(ctx, node, steps);
+    if (steps && !defer) applyNodeActions(ctx, node, steps, fresh);
     out.push(node);
     if (limit && out.length >= limit) return false;
   });

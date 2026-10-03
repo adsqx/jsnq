@@ -2,7 +2,7 @@
  * Pure tree helpers: string-path facade over the shared plan cache, move/copy/insert target
  * resolution and structural deep merge. Re-exported by core/utils.
  */
-import { hasOwn, isNumericSegment, isObject } from './guards';
+import { hasOwn, isForbiddenKey, isNumericSegment, isObject } from './guards';
 import {
   cloneJsonData, createJsonPathPlan, deleteJsonPath, getJsonBySegments, hasJsonPath, setJsonPlanCacheLimit, writeJsonPath,
 } from '../core/data-engine';
@@ -171,6 +171,9 @@ export function deepMerge(a: unknown, b: unknown, opts: DeepMergeOptions = {}): 
   if (isObject(a) && isObject(b)) {
     const out: Record<string, unknown> = { ...a };
     for (const k of Object.keys(b)) {
+      // A JSON-parsed patch can carry an own `__proto__` key: assigning it would replace the merged
+      // object's prototype, so forbidden keys are never copied.
+      if (isForbiddenKey(k)) continue;
       const av = a[k];
       const bv = b[k];
       // Recurse into object/object pairs and any pair involving an array; everything else is replaced.

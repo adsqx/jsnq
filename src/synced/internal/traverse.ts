@@ -18,6 +18,8 @@ export interface ScanJsonOptions {
   includeObjects: boolean;
   buildMeta: boolean;
   returnPaths: boolean;
+  /** Objects not to descend into: those the running pipeline created while walking. */
+  skip?: { has(value: object): boolean };
 }
 
 /**
@@ -75,17 +77,19 @@ class Walk {
     return true;
   }
 
-  /** Pushes the children of the current node (reverse order so pops run in document order). */
-  expand(): void {
+  /** Pushes the children of the current node (reverse order so pops run in document order), minus `skip`ped ones. */
+  expand(skip?: { has(value: object): boolean }): void {
     const { node, depth } = this;
     if (depth >= this.maxDepth) return;
     if (Array.isArray(node) && this.arrays) {
-      for (let index = node.length - 1; index >= 0; index--) this.push(node[index], depth + 1, node, index, String(index));
+      for (let index = node.length - 1; index >= 0; index--) {
+        if (skip === undefined || !skip.has(node[index] as object)) this.push(node[index], depth + 1, node, index, String(index));
+      }
     } else if (isObject(node) && this.objects) {
       const keys = Object.keys(node);
       for (let index = keys.length - 1; index >= 0; index--) {
         const key = keys[index]!;
-        this.push(node[key], depth + 1, node, key, key);
+        if (skip === undefined || !skip.has(node[key] as object)) this.push(node[key], depth + 1, node, key, key);
       }
     }
   }
@@ -120,7 +124,7 @@ export function scanJsonMatches(
   let observedMaxDepth = 0;
   if (!options.buildMeta && !options.returnPaths) {
     // Hot loop: only data + depth stacks, result frames are `{ data, depth }`.
-    const { maxDepth, includeArrays, includeObjects } = options;
+    const { maxDepth, includeArrays, includeObjects, skip } = options;
     const nodes: unknown[] = [data];
     const depths: number[] = [0];
     while (nodes.length > 0) {
@@ -135,13 +139,16 @@ export function scanJsonMatches(
       const nextDepth = depth + 1;
       if (Array.isArray(node) && includeArrays) {
         for (let index = node.length - 1; index >= 0; index--) {
+          if (skip !== undefined && skip.has(node[index] as object)) continue;
           nodes.push(node[index]);
           depths.push(nextDepth);
         }
       } else if (isObject(node) && includeObjects) {
         const keys = Object.keys(node);
         for (let index = keys.length - 1; index >= 0; index--) {
-          nodes.push(node[keys[index]!]);
+          const child = node[keys[index]!];
+          if (skip !== undefined && skip.has(child as object)) continue;
+          nodes.push(child);
           depths.push(nextDepth);
         }
       }
@@ -156,7 +163,7 @@ export function scanJsonMatches(
     if (predicate(walk.node) && onMatch(walk.frame()) === false) {
       return { nodesVisited, maxDepth: observedMaxDepth, stopped: true };
     }
-    walk.expand();
+    walk.expand(options.skip);
   }
   return { nodesVisited, maxDepth: observedMaxDepth, stopped: false };
 }
