@@ -33,6 +33,9 @@ function rewrite(file, content) {
     .replace(/(\bfrom\s+['"])(\.[^'"]+)(['"])/g, (_, prefix, specifier, suffix) =>
       `${prefix}${normalizeSpecifier(file, specifier)}${suffix}`)
     .replace(/(\bimport\s+['"])(\.[^'"]+)(['"])/g, (_, prefix, specifier, suffix) =>
+      `${prefix}${normalizeSpecifier(file, specifier)}${suffix}`)
+    // Inline type imports emitted by tsc (`import("..").X`) must be fully specified for node16/nodenext.
+    .replace(/(\bimport\(\s*['"])(\.[^'"]*)(['"]\s*\))/g, (_, prefix, specifier, suffix) =>
       `${prefix}${normalizeSpecifier(file, specifier)}${suffix}`);
 }
 

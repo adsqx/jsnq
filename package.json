@@ -29,179 +29,354 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/synced/index.d.ts",
-      "import": "./dist/synced/index.js",
-      "require": "./dist-cjs/synced/index.js"
+      "import": {
+        "types": "./dist/synced/index.d.ts",
+        "default": "./dist/synced/index.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/index.d.ts",
+        "default": "./dist-cjs/synced/index.js"
+      }
     },
     "./core/actions": {
-      "types": "./dist/synced/core/actions.d.ts",
-      "import": "./dist/synced/core/actions.js",
-      "require": "./dist-cjs/synced/core/actions.js"
+      "import": {
+        "types": "./dist/synced/core/actions.d.ts",
+        "default": "./dist/synced/core/actions.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/actions.d.ts",
+        "default": "./dist-cjs/synced/core/actions.js"
+      }
     },
     "./core/compiled-mutation": {
-      "types": "./dist/synced/core/compiled-mutation.d.ts",
-      "import": "./dist/synced/core/compiled-mutation.js",
-      "require": "./dist-cjs/synced/core/compiled-mutation.js"
+      "import": {
+        "types": "./dist/synced/core/compiled-mutation.d.ts",
+        "default": "./dist/synced/core/compiled-mutation.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/compiled-mutation.d.ts",
+        "default": "./dist-cjs/synced/core/compiled-mutation.js"
+      }
     },
     "./core/compiled-predicate": {
-      "types": "./dist/synced/core/compiled-predicate.d.ts",
-      "import": "./dist/synced/core/compiled-predicate.js",
-      "require": "./dist-cjs/synced/core/compiled-predicate.js"
+      "import": {
+        "types": "./dist/synced/core/compiled-predicate.d.ts",
+        "default": "./dist/synced/core/compiled-predicate.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/compiled-predicate.d.ts",
+        "default": "./dist-cjs/synced/core/compiled-predicate.js"
+      }
     },
     "./core/data-engine": {
-      "types": "./dist/synced/core/data-engine.d.ts",
-      "import": "./dist/synced/core/data-engine.js",
-      "require": "./dist-cjs/synced/core/data-engine.js"
+      "import": {
+        "types": "./dist/synced/core/data-engine.d.ts",
+        "default": "./dist/synced/core/data-engine.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/data-engine.d.ts",
+        "default": "./dist-cjs/synced/core/data-engine.js"
+      }
     },
     "./core/flat-array-fast-path": {
-      "types": "./dist/synced/core/flat-array-fast-path.d.ts",
-      "import": "./dist/synced/core/flat-array-fast-path.js",
-      "require": "./dist-cjs/synced/core/flat-array-fast-path.js"
+      "import": {
+        "types": "./dist/synced/core/flat-array-fast-path.d.ts",
+        "default": "./dist/synced/core/flat-array-fast-path.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/flat-array-fast-path.d.ts",
+        "default": "./dist-cjs/synced/core/flat-array-fast-path.js"
+      }
     },
     "./core/match": {
-      "types": "./dist/synced/core/match.d.ts",
-      "import": "./dist/synced/core/match.js",
-      "require": "./dist-cjs/synced/core/match.js"
+      "import": {
+        "types": "./dist/synced/core/match.d.ts",
+        "default": "./dist/synced/core/match.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/match.d.ts",
+        "default": "./dist-cjs/synced/core/match.js"
+      }
     },
     "./core/operators-registry": {
-      "types": "./dist/synced/core/operators-registry.d.ts",
-      "import": "./dist/synced/core/operators-registry.js",
-      "require": "./dist-cjs/synced/core/operators-registry.js"
+      "import": {
+        "types": "./dist/synced/core/operators-registry.d.ts",
+        "default": "./dist/synced/core/operators-registry.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/operators-registry.d.ts",
+        "default": "./dist-cjs/synced/core/operators-registry.js"
+      }
     },
     "./core/ops": {
-      "types": "./dist/synced/core/ops.d.ts",
-      "import": "./dist/synced/core/ops.js",
-      "require": "./dist-cjs/synced/core/ops.js"
+      "import": {
+        "types": "./dist/synced/core/ops.d.ts",
+        "default": "./dist/synced/core/ops.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/ops.d.ts",
+        "default": "./dist-cjs/synced/core/ops.js"
+      }
     },
     "./core/pipeline-fastpath": {
-      "types": "./dist/synced/core/pipeline-fastpath.d.ts",
-      "import": "./dist/synced/core/pipeline-fastpath.js",
-      "require": "./dist-cjs/synced/core/pipeline-fastpath.js"
+      "import": {
+        "types": "./dist/synced/core/pipeline-fastpath.d.ts",
+        "default": "./dist/synced/core/pipeline-fastpath.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/pipeline-fastpath.d.ts",
+        "default": "./dist-cjs/synced/core/pipeline-fastpath.js"
+      }
     },
     "./core/pipeline-wrapper": {
-      "types": "./dist/synced/core/pipeline-wrapper.d.ts",
-      "import": "./dist/synced/core/pipeline-wrapper.js",
-      "require": "./dist-cjs/synced/core/pipeline-wrapper.js"
+      "import": {
+        "types": "./dist/synced/core/pipeline-wrapper.d.ts",
+        "default": "./dist/synced/core/pipeline-wrapper.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/pipeline-wrapper.d.ts",
+        "default": "./dist-cjs/synced/core/pipeline-wrapper.js"
+      }
     },
     "./core/pipeline": {
-      "types": "./dist/synced/core/pipeline.d.ts",
-      "import": "./dist/synced/core/pipeline.js",
-      "require": "./dist-cjs/synced/core/pipeline.js"
+      "import": {
+        "types": "./dist/synced/core/pipeline.d.ts",
+        "default": "./dist/synced/core/pipeline.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/pipeline.d.ts",
+        "default": "./dist-cjs/synced/core/pipeline.js"
+      }
     },
     "./core/types": {
-      "types": "./dist/synced/core/types.d.ts",
-      "import": "./dist/synced/core/types.js",
-      "require": "./dist-cjs/synced/core/types.js"
+      "import": {
+        "types": "./dist/synced/core/types.d.ts",
+        "default": "./dist/synced/core/types.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/types.d.ts",
+        "default": "./dist-cjs/synced/core/types.js"
+      }
     },
     "./core/utils": {
-      "types": "./dist/synced/core/utils.d.ts",
-      "import": "./dist/synced/core/utils.js",
-      "require": "./dist-cjs/synced/core/utils.js"
+      "import": {
+        "types": "./dist/synced/core/utils.d.ts",
+        "default": "./dist/synced/core/utils.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/core/utils.d.ts",
+        "default": "./dist-cjs/synced/core/utils.js"
+      }
     },
     "./operators/copy": {
-      "types": "./dist/synced/operators/copy.d.ts",
-      "import": "./dist/synced/operators/copy.js",
-      "require": "./dist-cjs/synced/operators/copy.js"
+      "import": {
+        "types": "./dist/synced/operators/copy.d.ts",
+        "default": "./dist/synced/operators/copy.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/copy.d.ts",
+        "default": "./dist-cjs/synced/operators/copy.js"
+      }
     },
     "./operators/copyTo": {
-      "types": "./dist/synced/operators/copyTo.d.ts",
-      "import": "./dist/synced/operators/copyTo.js",
-      "require": "./dist-cjs/synced/operators/copyTo.js"
+      "import": {
+        "types": "./dist/synced/operators/copyTo.d.ts",
+        "default": "./dist/synced/operators/copyTo.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/copyTo.d.ts",
+        "default": "./dist-cjs/synced/operators/copyTo.js"
+      }
     },
     "./operators/copyToAll": {
-      "types": "./dist/synced/operators/copyToAll.d.ts",
-      "import": "./dist/synced/operators/copyToAll.js",
-      "require": "./dist-cjs/synced/operators/copyToAll.js"
+      "import": {
+        "types": "./dist/synced/operators/copyToAll.d.ts",
+        "default": "./dist/synced/operators/copyToAll.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/copyToAll.d.ts",
+        "default": "./dist-cjs/synced/operators/copyToAll.js"
+      }
     },
     "./operators/copyToFirstTarget": {
-      "types": "./dist/synced/operators/copyToFirstTarget.d.ts",
-      "import": "./dist/synced/operators/copyToFirstTarget.js",
-      "require": "./dist-cjs/synced/operators/copyToFirstTarget.js"
+      "import": {
+        "types": "./dist/synced/operators/copyToFirstTarget.d.ts",
+        "default": "./dist/synced/operators/copyToFirstTarget.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/copyToFirstTarget.d.ts",
+        "default": "./dist-cjs/synced/operators/copyToFirstTarget.js"
+      }
     },
     "./operators/copyToMatches": {
-      "types": "./dist/synced/operators/copyToMatches.d.ts",
-      "import": "./dist/synced/operators/copyToMatches.js",
-      "require": "./dist-cjs/synced/operators/copyToMatches.js"
+      "import": {
+        "types": "./dist/synced/operators/copyToMatches.d.ts",
+        "default": "./dist/synced/operators/copyToMatches.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/copyToMatches.d.ts",
+        "default": "./dist-cjs/synced/operators/copyToMatches.js"
+      }
     },
     "./operators/deleteElement": {
-      "types": "./dist/synced/operators/deleteElement.d.ts",
-      "import": "./dist/synced/operators/deleteElement.js",
-      "require": "./dist-cjs/synced/operators/deleteElement.js"
+      "import": {
+        "types": "./dist/synced/operators/deleteElement.d.ts",
+        "default": "./dist/synced/operators/deleteElement.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/deleteElement.d.ts",
+        "default": "./dist-cjs/synced/operators/deleteElement.js"
+      }
     },
     "./operators/deleteKey": {
-      "types": "./dist/synced/operators/deleteKey.d.ts",
-      "import": "./dist/synced/operators/deleteKey.js",
-      "require": "./dist-cjs/synced/operators/deleteKey.js"
+      "import": {
+        "types": "./dist/synced/operators/deleteKey.d.ts",
+        "default": "./dist/synced/operators/deleteKey.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/deleteKey.d.ts",
+        "default": "./dist-cjs/synced/operators/deleteKey.js"
+      }
     },
     "./operators/insert": {
-      "types": "./dist/synced/operators/insert.d.ts",
-      "import": "./dist/synced/operators/insert.js",
-      "require": "./dist-cjs/synced/operators/insert.js"
+      "import": {
+        "types": "./dist/synced/operators/insert.d.ts",
+        "default": "./dist/synced/operators/insert.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/insert.d.ts",
+        "default": "./dist-cjs/synced/operators/insert.js"
+      }
     },
     "./operators/insertTo": {
-      "types": "./dist/synced/operators/insertTo.d.ts",
-      "import": "./dist/synced/operators/insertTo.js",
-      "require": "./dist-cjs/synced/operators/insertTo.js"
+      "import": {
+        "types": "./dist/synced/operators/insertTo.d.ts",
+        "default": "./dist/synced/operators/insertTo.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/insertTo.d.ts",
+        "default": "./dist-cjs/synced/operators/insertTo.js"
+      }
     },
     "./operators/mergeUpdate": {
-      "types": "./dist/synced/operators/mergeUpdate.d.ts",
-      "import": "./dist/synced/operators/mergeUpdate.js",
-      "require": "./dist-cjs/synced/operators/mergeUpdate.js"
+      "import": {
+        "types": "./dist/synced/operators/mergeUpdate.d.ts",
+        "default": "./dist/synced/operators/mergeUpdate.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/mergeUpdate.d.ts",
+        "default": "./dist-cjs/synced/operators/mergeUpdate.js"
+      }
     },
     "./operators/move": {
-      "types": "./dist/synced/operators/move.d.ts",
-      "import": "./dist/synced/operators/move.js",
-      "require": "./dist-cjs/synced/operators/move.js"
+      "import": {
+        "types": "./dist/synced/operators/move.d.ts",
+        "default": "./dist/synced/operators/move.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/move.d.ts",
+        "default": "./dist-cjs/synced/operators/move.js"
+      }
     },
     "./operators/moveTo": {
-      "types": "./dist/synced/operators/moveTo.d.ts",
-      "import": "./dist/synced/operators/moveTo.js",
-      "require": "./dist-cjs/synced/operators/moveTo.js"
+      "import": {
+        "types": "./dist/synced/operators/moveTo.d.ts",
+        "default": "./dist/synced/operators/moveTo.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/moveTo.d.ts",
+        "default": "./dist-cjs/synced/operators/moveTo.js"
+      }
     },
     "./operators/moveToAll": {
-      "types": "./dist/synced/operators/moveToAll.d.ts",
-      "import": "./dist/synced/operators/moveToAll.js",
-      "require": "./dist-cjs/synced/operators/moveToAll.js"
+      "import": {
+        "types": "./dist/synced/operators/moveToAll.d.ts",
+        "default": "./dist/synced/operators/moveToAll.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/moveToAll.d.ts",
+        "default": "./dist-cjs/synced/operators/moveToAll.js"
+      }
     },
     "./operators/moveToFirstTarget": {
-      "types": "./dist/synced/operators/moveToFirstTarget.d.ts",
-      "import": "./dist/synced/operators/moveToFirstTarget.js",
-      "require": "./dist-cjs/synced/operators/moveToFirstTarget.js"
+      "import": {
+        "types": "./dist/synced/operators/moveToFirstTarget.d.ts",
+        "default": "./dist/synced/operators/moveToFirstTarget.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/moveToFirstTarget.d.ts",
+        "default": "./dist-cjs/synced/operators/moveToFirstTarget.js"
+      }
     },
     "./operators/moveToMatches": {
-      "types": "./dist/synced/operators/moveToMatches.d.ts",
-      "import": "./dist/synced/operators/moveToMatches.js",
-      "require": "./dist-cjs/synced/operators/moveToMatches.js"
+      "import": {
+        "types": "./dist/synced/operators/moveToMatches.d.ts",
+        "default": "./dist/synced/operators/moveToMatches.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/moveToMatches.d.ts",
+        "default": "./dist-cjs/synced/operators/moveToMatches.js"
+      }
     },
     "./operators/moveToMatchesOverwrite": {
-      "types": "./dist/synced/operators/moveToMatchesOverwrite.d.ts",
-      "import": "./dist/synced/operators/moveToMatchesOverwrite.js",
-      "require": "./dist-cjs/synced/operators/moveToMatchesOverwrite.js"
+      "import": {
+        "types": "./dist/synced/operators/moveToMatchesOverwrite.d.ts",
+        "default": "./dist/synced/operators/moveToMatchesOverwrite.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/moveToMatchesOverwrite.d.ts",
+        "default": "./dist-cjs/synced/operators/moveToMatchesOverwrite.js"
+      }
     },
     "./operators/replace": {
-      "types": "./dist/synced/operators/replace.d.ts",
-      "import": "./dist/synced/operators/replace.js",
-      "require": "./dist-cjs/synced/operators/replace.js"
+      "import": {
+        "types": "./dist/synced/operators/replace.d.ts",
+        "default": "./dist/synced/operators/replace.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/replace.d.ts",
+        "default": "./dist-cjs/synced/operators/replace.js"
+      }
     },
     "./operators/shared": {
-      "types": "./dist/synced/operators/shared.d.ts",
-      "import": "./dist/synced/operators/shared.js",
-      "require": "./dist-cjs/synced/operators/shared.js"
+      "import": {
+        "types": "./dist/synced/operators/shared.d.ts",
+        "default": "./dist/synced/operators/shared.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/shared.d.ts",
+        "default": "./dist-cjs/synced/operators/shared.js"
+      }
     },
     "./operators/update": {
-      "types": "./dist/synced/operators/update.d.ts",
-      "import": "./dist/synced/operators/update.js",
-      "require": "./dist-cjs/synced/operators/update.js"
+      "import": {
+        "types": "./dist/synced/operators/update.d.ts",
+        "default": "./dist/synced/operators/update.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/update.d.ts",
+        "default": "./dist-cjs/synced/operators/update.js"
+      }
     },
     "./operators/where": {
-      "types": "./dist/synced/operators/where.d.ts",
-      "import": "./dist/synced/operators/where.js",
-      "require": "./dist-cjs/synced/operators/where.js"
+      "import": {
+        "types": "./dist/synced/operators/where.d.ts",
+        "default": "./dist/synced/operators/where.js"
+      },
+      "require": {
+        "types": "./dist-cjs/synced/operators/where.d.ts",
+        "default": "./dist-cjs/synced/operators/where.js"
+      }
     },
     "./data-engine": {
-      "types": "./dist/data-engine.d.ts",
-      "import": "./dist/data-engine.js",
-      "require": "./dist-cjs/data-engine.js"
+      "import": {
+        "types": "./dist/data-engine.d.ts",
+        "default": "./dist/data-engine.js"
+      },
+      "require": {
+        "types": "./dist-cjs/data-engine.d.ts",
+        "default": "./dist-cjs/data-engine.js"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -220,7 +395,7 @@
     "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/write-cjs-package.mjs",
     "prepack": "npm run build && npm run verify:exports",
     "typecheck": "tsc --noEmit",
-    "test": "bun run test:types && bun run test:units && bun run test:fastpath && bun run test:data-engine && bun run test:edge && bun run test:structural && bun run test:vs-native && bun run test:proto-guard && bun run test:api && bun run test:bench",
+    "test": "bun run test:types && bun run test:units && bun run test:fastpath && bun run test:data-engine && bun run test:edge && bun run test:structural && bun run test:vs-native && bun run test:proto-guard && bun run test:api && bun run test:regressions && bun run test:bench",
     "test:types": "tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --skipLibCheck test/types-path-contract.ts test/types-api-contract.ts",
     "test:units": "bun test/jsnq-match-actions.test.ts",
     "test:fastpath": "bun test/jsnq-fastpath-parity.test.ts",
@@ -232,6 +407,7 @@
     "verify:exports": "node scripts/verify-exports.mjs",
     "test:proto-guard": "bun test/jsnq-prototype-guard.test.ts",
     "test:api": "bun test/jsnq-api-ergonomics.test.ts",
+    "test:regressions": "bun test/jsnq-regressions.test.ts",
     "examples": "bun examples/index.ts",
     "examples:typecheck": "tsc --noEmit -p examples/tsconfig.json"
   },
