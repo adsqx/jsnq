@@ -64,8 +64,8 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
   first(): TData | null;
   first<T = unknown>(): T | null;
   first<T = unknown>(): T | null {
-    const limited = this.with({ options: { ...this.options, earlyTermination: true } });
-    const res = limited.execute();
+    // Runs on this instance (not a copy) so an immutable pipeline's `.data` and `getStats()` reflect the run.
+    const res = this.execute({ ...this.options, earlyTermination: true });
     return res.length ? (res[0].data as unknown as T) : null;
   }
 
@@ -77,9 +77,9 @@ export class JsnqPipeline<TData extends JsonLike = JsonLike> implements Pipeline
     return { ...this.stats, warnings: [...this.stats.warnings], operations: [...this.stats.operations] };
   }
 
-  private execute(): SearchResultNode<TData, unknown, string | number>[] {
+  private execute(options: Readonly<SearchOptions> = this.options): SearchResultNode<TData, unknown, string | number>[] {
     const t0 = now();
-    const { stats, criteria, actions, options } = this;
+    const { stats, criteria, actions } = this;
     resetStats(stats);
     const strictCtx: StrictOperatorContext = { warnedUnknownOps: this.warnedUnknownOps, warnings: stats.warnings };
     // Criteria are analysed (and the strict-operator policy enforced) once per execute.
