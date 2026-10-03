@@ -4,7 +4,10 @@
  * pipeline updates `.data`, and the flat fast paths agree with the general traversal.
  * Run: bun test/jsnq-regressions.test.ts
  */
-import { JsnqPipeline, where, update, mergeUpdate, registerOperator, tryFastPipelineMutation } from '../src/synced';
+import {
+  JsnqPipeline, where, update, mergeUpdate, registerOperator, tryFastPipelineMutation, tryFastMutation, tryFastStructuralMutation,
+  collectPipelineIntent, isDeepSugarAction, applyDeepSugarPatch, insert, deleteKey,
+} from '../src/synced';
 
 let failures = 0;
 const ok = (cond: unknown, msg: string): void => {
@@ -65,7 +68,33 @@ const run = (data: any, ...ops: any[]) => {
   ok(viaFast === undefined || J(viaFast.value) === J(r.data), 'fast mutation agrees with the pipeline on array items');
 }
 
-// 5. Codegen honours registerOperator overrides of built-ins (kept last: it replaces '==').
+// 5. tryFastMutation is exactly the cascade the stores used to assemble by hand.
+{
+  const manual = (value: unknown, ops: any[]) => {
+    const fast = tryFastPipelineMutation(value, ops, { collectAffectedPaths: true });
+    if (fast) return fast;
+    const intent = collectPipelineIntent(ops);
+    const structural = tryFastStructuralMutation(value, intent);
+    if (structural) return structural;
+    if (intent.criteria.length > 0 && intent.actions.length > 0 && intent.actions.every(isDeepSugarAction)) {
+      return { value: applyDeepSugarPatch(value, intent.criteria, intent.actions), mutations: 1, matched: 0, affectedPaths: null };
+    }
+    return undefined;
+  };
+  const rows = () => [{ id: 1, meta: { s: 1 } }, { id: 2, meta: { s: 2 } }];
+  const cases: Array<[string, () => unknown, any[]]> = [
+    ['flat update', rows, [where('id', '==', 2), update('meta.s', 9)]],
+    ['flat delete', rows, [where('id', '>', 0), deleteKey('meta')]],
+    ['structural insert', rows, [insert({ id: 3 } as any)]],
+    ['sugar patch', () => ({ a: { b: { c: 1 } } }), [where('a.b.c', '==', 1), update({ z: 1 } as any)]],
+    ['no fast path', () => ({ a: [{ x: 1 }] }), [where('x', '==', 1), update('x', 2)]],
+  ];
+  for (const [label, make, ops] of cases) {
+    ok(JSON.stringify(tryFastMutation(make(), ops, { collectAffectedPaths: true })) === JSON.stringify(manual(make(), ops)), `tryFastMutation: ${label}`);
+  }
+}
+
+// 6. Codegen honours registerOperator overrides of built-ins (kept last: it replaces '==').
 {
   registerOperator('==', (a) => a === 'x');
   const r = run([{ v: 'x' }, { v: 'y' }], where('v', '==', 'y'), update('hit', true));

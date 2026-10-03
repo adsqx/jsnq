@@ -191,6 +191,13 @@ their identity. These helpers compute that directly. They are what
 [`@adsq/angular-signal-store`](https://github.com/adsqx/angular-signal-store) call for
 `store.list.mutate(where(...), update(...))`.
 
+### `tryFastMutation(current, operators, options?)`
+
+The whole cascade in one call, with the operators analysed once: `tryFastPipelineMutation`, then the
+[structural shortcuts](#structural-shortcuts), then the deep sugar patch (`where('a.b.c', ...)` +
+`update({ ...patch })`). Same result shape; `undefined` when none applies, so run a pipeline. This is
+the entry both signal stores use.
+
 ### `tryFastPipelineMutation(current, operators, options?)`
 
 Takes the same operator list you would `pipe()`. Returns

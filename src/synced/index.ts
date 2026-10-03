@@ -6,6 +6,7 @@ export { registerOperator } from './core/operators-registry';
 export { setPathCacheLimit, buildPath } from './core/utils';
 export {
   tryFastPipelineMutation,
+  tryFastMutation,
   tryFastStructuralMutation,
   applyInsertToInsideArrayCow,
   applyDeepSugarPatch,

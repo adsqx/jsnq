@@ -84,7 +84,15 @@ export function tryFastPipelineMutation<TData = unknown>(
   ops: ReadonlyArray<unknown>,
   options: FastMutationOptions = {}
 ): FastMutationResult<TData> | undefined {
-  const intent = collectPipelineIntent(ops);
+  return fastFlatMutation(currentValue, collectPipelineIntent(ops), options);
+}
+
+/** {@link tryFastPipelineMutation} on an intent already collected (the fast cascade collects it once). */
+export function fastFlatMutation<TData = unknown>(
+  currentValue: TData,
+  intent: PipelineIntent,
+  options: FastMutationOptions = {}
+): FastMutationResult<TData> | undefined {
   if (!canFastPath(currentValue, intent)) return undefined;
 
   const patches = intent.actions.map(sugarPatchOf).filter((patch): patch is SugarPatch => patch !== null);

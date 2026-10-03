@@ -2,4 +2,5 @@
 export type { PipelineIntent, FastMutationResult, FastMutationOptions } from '../internal/fastpath/shared';
 export { collectPipelineIntent } from '../internal/fastpath/shared';
 export { collectFlatValueActionPaths, tryFastPipelineMutation } from '../internal/fastpath/cow-array';
+export { tryFastMutation } from '../internal/fastpath/cascade';
 export { applyInsertToInsideArrayCow, tryFastStructuralMutation, applyDeepSugarPatch, isDeepSugarAction } from '../internal/fastpath/structural';
