@@ -417,8 +417,11 @@ concrete field types. Interfaces have no implicit index signature and `unknown` 
 **Is `@adsq/jsnq/operators/where` a function under `require()`?** No, it is `{ default }`; use
 `.default` or the named exports of the root entry.
 
-**Does it work under a strict CSP?** Yes. Hot paths compile small predicates with `new Function`;
-when that is blocked (checked by making `Function` throw) the engine falls back to its interpreter with identical results, only slower.
+**Does it work under a strict CSP?** Yes. On flat arrays, criteria with built-in operators
+(nested paths such as `meta.score` included) and simple `update` / `replace` / `mergeUpdate` /
+`deleteKey` actions are compiled once per shape with `new Function` and cached. When that is
+blocked (probed once) the engine falls back to its interpreter with identical results, only slower;
+`test/jsnq-codegen-differential.test.ts` checks the two agree.
 
 **Can I plug in my own comparison?** `registerOperator('isEven', (actual, expected) => ...)`, then
 `where('n', 'isEven', undefined)`. It is global to the process. Re-registering a built-in such as

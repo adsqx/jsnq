@@ -3,6 +3,7 @@ import type { ActionMap, ActionType } from '../types/actions';
 import type { CompiledCriterion } from '../types/model';
 import { getOperatorFn } from '../../core/operators-registry';
 import { createJsonPathPlan } from '../../core/data-engine';
+import { isForbiddenSegment } from '../guards';
 import { builtinOp } from './builtin-ops';
 
 let compileOk: boolean | null = null;
@@ -47,11 +48,12 @@ export function opExpr(op: string, a: string, b: string): string | null {
 /** Length-prefixed signature fragment (unambiguous for any string content). */
 export const sigPart = (s: unknown): string => `${String(s).length}:${String(s)}`;
 
-/** Codegen-able criteria: non-empty, all shallow, single-segment, inlinable (non-overridden) built-in operators. */
+/** Codegen-able criteria: non-empty, all shallow, string paths without forbidden segments, inlinable (non-overridden) built-in operators. */
 export function criteriaCodegenable(criteria: ReadonlyArray<CompiledCriterion>): boolean {
   if (criteria.length === 0) return false;
   for (const c of criteria) {
-    if (c.isDeep || c.segments.length !== 1 || c.segments[0] === undefined) return false;
+    if (c.isDeep || c.segments.length === 0) return false;
+    for (const seg of c.segments) if (typeof seg !== 'string' || isForbiddenSegment(seg)) return false;
     const op = String(c.operator);
     // Inline only a built-in that has not been overridden through registerOperator.
     const builtin = builtinOp(op);
@@ -62,25 +64,33 @@ export function criteriaCodegenable(criteria: ReadonlyArray<CompiledCriterion>):
 
 /**
  * Source lines that read each criterion's value from the object `it` into `a<i>` and run `fail` on a
- * mismatch. Mirrors criterionMatches: array → `length` or an in-range numeric index; object → key `in` it.
+ * mismatch. Mirrors criterionMatches: the head must be present (array → `length` or an in-range
+ * index; object → key `in` it), then the rest of the path is walked like getJsonBySegments (a nullish
+ * step reads as `undefined`). Constant keys compile to direct property loads.
  */
 export function criteriaCheckSource(criteria: ReadonlyArray<CompiledCriterion>, fail: string): string[] {
   const lines = [`var arr = Array.isArray(it);`];
   for (let i = 0; i < criteria.length; i++) {
-    const key = JSON.stringify(criteria[i].segments[0]); // exact key string, escaped
+    const [head, ...rest] = criteria[i].segments as string[];
+    const key = JSON.stringify(head);
     const a = `a${i}`;
+    const walk = rest.map((seg) => ` ${a} = ${a} == null ? undefined : ${a}[${JSON.stringify(seg)}];`).join('');
+    const arrayRead = head === 'length'
+      ? (rest.length === 0 ? `${a} = it.length;` : `${a} = it.length;${walk}`)
+      // A single index reads numerically (as criterionMatches does); a longer path walks by the key string.
+      : `var i${i} = +${key}; if (!(i${i} >= 0 && i${i} < it.length)) ${fail}; ${a} = it[${rest.length === 0 ? `i${i}` : key}];${walk}`;
     lines.push(
       `var ${a};`,
-      `if (arr) { if (${key} === 'length') { ${a} = it.length; } else { var i${i} = +${key}; if (!(i${i} >= 0 && i${i} < it.length)) ${fail}; ${a} = it[i${i}]; } } else { if (!(${key} in it)) ${fail}; ${a} = it[${key}]; }`,
+      `if (arr) { ${arrayRead} } else { if (!(${key} in it)) ${fail}; ${a} = it[${key}];${walk} }`,
       `if (!(${opExpr(String(criteria[i].operator), a, `vals[${i}]`)})) ${fail};`,
     );
   }
   return lines;
 }
 
-/** Factory-cache signature of the (segment, operator) shape of `criteria`. */
+/** Factory-cache signature of the (path, operator) shape of `criteria`. */
 export function criteriaSignature(criteria: ReadonlyArray<CompiledCriterion>): string {
-  return criteria.map((c) => sigPart(c.segments[0]) + ':' + sigPart(c.operator)).join('|');
+  return criteria.map((c) => c.segments.map(sigPart).join('.') + ':' + sigPart(c.operator)).join('|');
 }
 
 /** True when `key` is a non-empty string path with exactly one segment (throws for forbidden segments). */
