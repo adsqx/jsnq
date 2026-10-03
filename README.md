@@ -238,7 +238,8 @@ deleteJsonPath(state, 'workspace.pages.0.title').kind; // => 'delete'
 
 `JsnqPipeline<TData>` requires JSON-like data. Declare the shape with a `type` alias (interfaces
 and `unknown` fields do not satisfy `JsonLike`). Then `Path<T>` is the union of valid paths and
-`PathValue<T, P>` the type at a path:
+`PathValue<T, P>` the type at a path (`Draft<T>` is the deep-mutable version of `T`, used by the
+stores' `$draft`):
 
 ```ts
 import { JsnqPipeline } from '@adsq/jsnq';

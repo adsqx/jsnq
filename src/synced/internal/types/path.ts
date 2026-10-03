@@ -3,6 +3,15 @@
 export type Primitive = string | number | boolean | null | undefined;
 export type JsonLike = Primitive | JsonLike[] | { [k: string]: JsonLike };
 
+/** Deep-mutable view of `T`: strips `readonly`, recurses into objects and arrays; functions and primitives as is. */
+export type Draft<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
+    ? Draft<U>[]
+    : T extends object
+      ? { -readonly [K in keyof T]: Draft<T[K]> }
+      : T;
+
 // Path strings for object/array structures: dot notation (users.0.name) and bracket indexes (users[0].name).
 // Depth-limited recursion avoids TS "excessively deep" errors.
 type _Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
