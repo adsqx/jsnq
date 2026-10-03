@@ -124,7 +124,7 @@ function walkChildren(node: object, depth: number, probe: Probe): boolean {
 /**
  * True when any nested descendant (beyond the top-level items) could match the criteria heads: the
  * signal that a flat scan would diverge from full DFS. Shared by both fast paths so they bail out
- * identically. Known and kept: array `length` criterion heads are not considered.
+ * identically.
  */
 export function hasNestedCriterionCandidate(items: unknown[], criteria: ReadonlyArray<CompiledCriterion>, options: Readonly<SearchOptions>): boolean {
   const { maxDepth, includeArrays, includeObjects } = resolveTraversal(options);
@@ -136,8 +136,9 @@ export function hasNestedCriterionCandidate(items: unknown[], criteria: Readonly
     const head = criterion.segments[0];
     if (head === undefined) return true;
     if (heads.indexOf(head) < 0) heads.push(head);
-    const index = Number(head);
-    if (index >= 0 && index < minIndex) minIndex = index;
+    // Every array has a `length`, so a `length` head makes any nested array a candidate.
+    const index = head === 'length' ? -1 : Number(head) >= 0 ? Number(head) : Infinity;
+    if (index < minIndex) minIndex = index;
   }
 
   const probe: Probe = { heads, minIndex, maxDepth, includeArrays, includeObjects };

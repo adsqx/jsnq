@@ -1,7 +1,7 @@
 /** Helpers shared by the criteria-predicate and flat-mutation code generators, plus the per-action source templates. */
 import type { ActionMap, ActionType } from '../types/actions';
 import type { CompiledCriterion } from '../types/model';
-import { isOperatorKnown } from '../../core/operators-registry';
+import { getOperatorFn } from '../../core/operators-registry';
 import { createJsonPathPlan } from '../../core/data-engine';
 import { builtinOp } from './builtin-ops';
 
@@ -47,15 +47,35 @@ export function opExpr(op: string, a: string, b: string): string | null {
 /** Length-prefixed signature fragment (unambiguous for any string content). */
 export const sigPart = (s: unknown): string => `${String(s).length}:${String(s)}`;
 
-/** Codegen-able criteria: non-empty, all shallow, single-segment, inlinable built-in operators. */
+/** Codegen-able criteria: non-empty, all shallow, single-segment, inlinable (non-overridden) built-in operators. */
 export function criteriaCodegenable(criteria: ReadonlyArray<CompiledCriterion>): boolean {
   if (criteria.length === 0) return false;
   for (const c of criteria) {
     if (c.isDeep || c.segments.length !== 1 || c.segments[0] === undefined) return false;
     const op = String(c.operator);
-    if (!isOperatorKnown(op) || opExpr(op, 'a', 'b') === null) return false;
+    // Inline only a built-in that has not been overridden through registerOperator.
+    const builtin = builtinOp(op);
+    if (!builtin?.expr || getOperatorFn(op) !== builtin.fn) return false;
   }
   return true;
+}
+
+/**
+ * Source lines that read each criterion's value from the object `it` into `a<i>` and run `fail` on a
+ * mismatch. Mirrors criterionMatches: array → `length` or an in-range numeric index; object → key `in` it.
+ */
+export function criteriaCheckSource(criteria: ReadonlyArray<CompiledCriterion>, fail: string): string[] {
+  const lines = [`var arr = Array.isArray(it);`];
+  for (let i = 0; i < criteria.length; i++) {
+    const key = JSON.stringify(criteria[i].segments[0]); // exact key string, escaped
+    const a = `a${i}`;
+    lines.push(
+      `var ${a};`,
+      `if (arr) { if (${key} === 'length') { ${a} = it.length; } else { var i${i} = +${key}; if (!(i${i} >= 0 && i${i} < it.length)) ${fail}; ${a} = it[i${i}]; } } else { if (!(${key} in it)) ${fail}; ${a} = it[${key}]; }`,
+      `if (!(${opExpr(String(criteria[i].operator), a, `vals[${i}]`)})) ${fail};`,
+    );
+  }
+  return lines;
 }
 
 /** Factory-cache signature of the (segment, operator) shape of `criteria`. */

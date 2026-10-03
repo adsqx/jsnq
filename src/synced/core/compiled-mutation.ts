@@ -1,7 +1,7 @@
 import type { Action, CompiledCriterion, PipelineStats, SearchResultNode } from './types';
 import {
-  ACTION_CODEGEN, actionValue, canCompile, criteriaCodegenable, criteriaSignature, isCodegenAction, isSingleSegmentKey,
-  makeFactoryCache, opExpr, sigPart,
+  ACTION_CODEGEN, actionValue, canCompile, criteriaCheckSource, criteriaCodegenable, criteriaSignature, isCodegenAction, isSingleSegmentKey,
+  makeFactoryCache, sigPart,
 } from '../internal/codegen/common';
 import { ACTION_STAT } from '../internal/run-options';
 
@@ -53,12 +53,6 @@ export function isFlatMutationCodegenable(criteria: ReadonlyArray<CompiledCriter
 }
 
 function buildFactory(criteria: ReadonlyArray<CompiledCriterion>, actions: ReadonlyArray<Action>): FlatMutationFactory | null {
-  const predicate = criteria
-    .map((c, i) => {
-      const key = JSON.stringify(c.segments[0]);
-      return `((${key} in it) && (${opExpr(String(c.operator), `it[${key}]`, `vals[${i}]`)}))`;
-    })
-    .join(' && ');
 
   const actionLines: string[] = [];
   const statIncrements: string[] = [];
@@ -93,7 +87,7 @@ function buildFactory(criteria: ReadonlyArray<CompiledCriterion>, actions: Reado
     `  for (var i = 0; i < items.length; i++) {`,
     `    var it = items[i];`,
     `    if (it === null || typeof it !== 'object') continue;`,
-    `    if (!(${predicate})) continue;`,
+    ...criteriaCheckSource(criteria, 'continue').map((l) => `    ${l}`),
     `    matched++;`,
     ...operationPushes.map((l) => `    ${l}`),
     `    var target = cow ? opts.clone(it) : it;`,

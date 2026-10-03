@@ -1,5 +1,5 @@
 import type { CompiledCriterion } from './types';
-import { canCompile, criteriaCodegenable, criteriaSignature, makeFactoryCache, opExpr } from '../internal/codegen/common';
+import { canCompile, criteriaCheckSource, criteriaCodegenable, criteriaSignature, makeFactoryCache, opExpr } from '../internal/codegen/common';
 
 /**
  * Optional codegen fast path for the criteria matcher: compiles single-segment, non-deep,
@@ -23,19 +23,7 @@ export function clearCompiledPredicateCache(): void { factories.clear(); }
 export { opExpr };
 
 function buildFactory(criteria: ReadonlyArray<CompiledCriterion>): Factory | null {
-  const lines: string[] = [
-    `if (it === null || typeof it !== 'object') return false;`,
-    `var arr = Array.isArray(it);`,
-  ];
-  for (let i = 0; i < criteria.length; i++) {
-    const key = JSON.stringify(criteria[i].segments[0]); // exact key string, escaped
-    const a = `a${i}`;
-    const op = opExpr(String(criteria[i].operator), a, `vals[${i}]`);
-    // Mirrors criterionMatches: array → numeric index in range; object → key must be present (`in`).
-    lines.push(`var ${a};`);
-    lines.push(`if (arr) { if (${key} === 'length') { ${a} = it.length; } else { var i${i} = +${key}; if (!(i${i} >= 0 && i${i} < it.length)) return false; ${a} = it[i${i}]; } } else { if (!(${key} in it)) return false; ${a} = it[${key}]; }`);
-    lines.push(`if (!(${op})) return false;`);
-  }
+  const lines = [`if (it === null || typeof it !== 'object') return false;`, ...criteriaCheckSource(criteria, 'return false')];
   lines.push(`return true;`);
   try {
     return new Function('vals', `return function(it){\n${lines.join('\n')}\n};`) as Factory;
