@@ -49,6 +49,7 @@ you need a new value.
 | `cloneJsonData(value)` | `T` | Deep clone plain JSON-like data. |
 | `setJsonPlanCacheLimit(n)`, `getJsonPlanCacheStats()`, `clearJsonPlanCache()` | | Control and inspect the plan cache. |
 | `JsonDataCursor` | class | Remembers the last written branch to speed up repeated writes into one subtree. |
+| `normalizeDotPath`, `splitDotPath`, `isValidDotPath`, `dotPathAncestors`, `resolveDependencyPath`, ... | | The stores' strict dot-path syntax. See [Dot paths](#dot-paths). |
 
 ## Reading
 
@@ -197,6 +198,23 @@ cache serves the pipeline's own path parsing. `setPathCacheLimit(n)` (root entry
 - `cloneJsonData(value)` deep-clones plain arrays and objects (shared references and cycles are
   preserved, sparse array holes stay holes). Class instances such as `Date` go through
   `structuredClone` when it is available.
+
+## Dot paths
+
+The Angular and Solid signal stores accept a stricter path syntax than the engine: identifier keys
+and array indexes joined by dots, with `a[0]` accepted as `a.0`. These helpers implement it once for
+both stores. Results of normalizing bracket paths, splitting and validating are cached (bounded,
+generational eviction); `clearDotPathCaches()` drops them.
+
+| Function | Result |
+| --- | --- |
+| `normalizeDotPath(path)` | `'users[0].name'` -> `'users.0.name'`; `''` for an empty path. |
+| `splitDotPath(normalized)` | Cached segments; empty segments are kept. Do not mutate the array. |
+| `isValidDotPath(path)` / `isValidNormalizedDotPath(normalized)` | Identifier or index segments only, none of `__proto__` / `prototype` / `constructor`. |
+| `dotPathParent(normalized)` | `'a.b.c'` -> `'a.b'`; `null` for a top-level key (no validation). |
+| `dotPathIndexContainer(path)` | Container above the first index: `'tree.0.fields'` -> `'tree'`; `null` otherwise. |
+| `dotPathAncestors(path)` | `'a.0.b'` -> `['a.0.b', 'a.0', 'a']`; `[]` for an invalid path. |
+| `resolveDependencyPath(normalized, { dependencyMode, bumpNumericParent })` | The path a reactive store tracks: the path itself (`'exact'`) or its parent (`'container'`), optionally lifted to the container above the first index. |
 
 ## Safety
 

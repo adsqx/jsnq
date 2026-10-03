@@ -10,3 +10,8 @@ export {
   JsonDataCursor,
 } from '../internal/path/ops';
 export { cloneJsonData } from '../internal/path/clone';
+export type { DependencyPathOptions } from '../internal/path/dot';
+export {
+  clearDotPathCaches, dotPathAncestors, dotPathIndexContainer, dotPathParent, isValidDotPath, isValidNormalizedDotPath,
+  normalizeDotPath, resolveDependencyPath, splitDotPath,
+} from '../internal/path/dot';

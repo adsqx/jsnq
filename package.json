@@ -395,7 +395,7 @@
     "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/write-cjs-package.mjs",
     "prepack": "npm run build && npm run verify:exports",
     "typecheck": "tsc --noEmit",
-    "test": "bun run test:types && bun run test:units && bun run test:fastpath && bun run test:data-engine && bun run test:edge && bun run test:structural && bun run test:vs-native && bun run test:proto-guard && bun run test:api && bun run test:regressions && bun run test:bench",
+    "test": "bun run test:types && bun run test:units && bun run test:fastpath && bun run test:data-engine && bun run test:edge && bun run test:structural && bun run test:vs-native && bun run test:proto-guard && bun run test:api && bun run test:regressions && bun run test:dot-path && bun run test:bench",
     "test:types": "tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --skipLibCheck test/types-path-contract.ts test/types-api-contract.ts",
     "test:units": "bun test/jsnq-match-actions.test.ts",
     "test:fastpath": "bun test/jsnq-fastpath-parity.test.ts",
@@ -408,6 +408,7 @@
     "test:proto-guard": "bun test/jsnq-prototype-guard.test.ts",
     "test:api": "bun test/jsnq-api-ergonomics.test.ts",
     "test:regressions": "bun test/jsnq-regressions.test.ts",
+    "test:dot-path": "bun test/jsnq-dot-path.test.ts",
     "examples": "bun examples/index.ts",
     "examples:typecheck": "tsc --noEmit -p examples/tsconfig.json"
   },

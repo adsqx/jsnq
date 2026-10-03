@@ -223,6 +223,7 @@ a pipeline. It **mutates the object you pass**. Full API: [docs/data-engine.md](
 | `getJsonAffectedPaths(pathOrPlan, mode)` | `'exact'` path, or `'branch'` (path plus ancestors). |
 | `cloneJsonData(value)` | Deep clone of plain JSON-like data. |
 | `JsonDataCursor` | Speeds up repeated writes into one subtree. |
+| `normalizeDotPath`, `splitDotPath`, `isValidDotPath`, `dotPathAncestors`, `resolveDependencyPath`, ... | Dot paths: the strict `a.b.0` / `a[0]` syntax of the Angular and Solid stores, cached. See [docs/data-engine.md](./docs/data-engine.md#dot-paths). |
 
 ```ts
 import { writeJsonPath, readJsonPath, deleteJsonPath } from '@adsq/jsnq/data-engine';
